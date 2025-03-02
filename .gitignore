@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+log/
+*.log
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Project specific
+ext-exe/obj/
+ext-exe/bin/
