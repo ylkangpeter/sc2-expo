@@ -23,7 +23,7 @@ pip install -r requirements.txt
 
 ## 配置说明
 在 `src/config.py` 文件中可以修改以下配置项：
-在 respirces目录下编辑文件内容，来做具体的提醒，红点相关资料参考 https://bbs.nga.cn/read.php?tid=17265336&rand=787
+在 resource目录下编辑文件内容，来做具体的提醒，红点相关资料参考 https://bbs.nga.cn/read.php?tid=17265336&rand=787
 
 ### 调试相关
 - `DEBUG_MODE`：调试模式开关（True/False）
