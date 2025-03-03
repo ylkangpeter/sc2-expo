@@ -37,6 +37,9 @@ pip install -r requirements.txt
 ### 时间提醒设置
 - `TIME_ALERT_SECONDS`：提前提醒时间（秒）
 
+## 界面预览
+![程序界面预览](img/sample.png)
+
 ## 注意事项
 1. 确保游戏窗口可见，不要最小化
 2. 程序会在系统托盘显示图标
