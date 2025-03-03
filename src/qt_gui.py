@@ -587,14 +587,11 @@ class TimerWindow(QMainWindow):
                         event_item = QTableWidgetItem(line)
                         event_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
                         event_item.setForeground(QBrush(QColor(255, 255, 255)))  # 设置事件列文字颜色为白色
-                        self.table_area.setItem(row, 1, event_item)
                         
-                        # 时间列保持为空
-                        time_item = QTableWidgetItem("")
-                        time_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-                        self.table_area.setItem(row, 0, time_item)
-                        
-                        self.logger.info(f'已添加不规范行内容到事件列 - 行{row+1}: {line}')
+                        self.table_area.setItem(row, 0, event_item)
+                        self.table_area.setSpan(row, 0, 1, 2)  # 将当前行的两列合并为一列
+
+                        self.logger.info(f'已添加不规范行内容到合并单元格 - 行{row+1}: {line}')
                 
                 # 调整列宽
                 self.table_area.setColumnWidth(0, 50)  # 时间列固定宽度
