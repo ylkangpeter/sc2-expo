@@ -240,8 +240,21 @@ class TimerWindow(QMainWindow):
         # 强制设置下拉列表的窗口标志
         self.combo_box.view().window().setAttribute(Qt.WA_TranslucentBackground, False)
         # 加载resources文件夹下的文件
-        resources_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources')
-        files = [f for f in os.listdir(resources_dir) if os.path.isfile(os.path.join(resources_dir, f))]
+        # 首先尝试在当前目录查找resources目录
+        current_dir = os.getcwd()
+        resources_dir = os.path.join(current_dir, 'resources')
+        
+        # 如果当前目录没有resources目录，则尝试在程序目录查找
+        if not os.path.exists(resources_dir):
+            self.logger.info(f'当前目录下未找到资源目录，尝试在程序目录查找')
+            resources_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources')
+            
+        if not os.path.exists(resources_dir):
+            self.logger.error(f'资源目录不存在: {resources_dir}')
+            files = []
+        else:
+            self.logger.info(f'使用资源目录: {resources_dir}')
+            files = [f for f in os.listdir(resources_dir) if os.path.isfile(os.path.join(resources_dir, f))]
         self.combo_box.addItems(files)
         
         # 连接下拉框选择变化事件
@@ -539,7 +552,15 @@ class TimerWindow(QMainWindow):
         """处理地图选择变化事件"""
         try:
             # 获取地图文件的完整路径
-            resources_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources')
+            # 首先尝试在当前目录查找resources目录
+            current_dir = os.getcwd()
+            resources_dir = os.path.join(current_dir, 'resources')
+            
+            # 如果当前目录没有resources目录，则尝试在程序目录查找
+            if not os.path.exists(resources_dir):
+                self.logger.info(f'当前目录下未找到资源目录，尝试在程序目录查找')
+                resources_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources')
+            
             map_file_path = os.path.join(resources_dir, map_name)
             self.logger.info(f'尝试加载地图文件: {map_file_path}')
             
