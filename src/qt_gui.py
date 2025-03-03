@@ -765,10 +765,10 @@ class TimerWindow(QMainWindow):
         """初始化Toast提示组件"""
         # 创建Toast标签
         self.toast_label = QLabel(self)
-        self.toast_label.setFont(QFont('Arial', 24))  # 设置字体大小为24
+        self.toast_label.setFont(QFont('Arial', config.TOAST_FONT_SIZE))  # 设置字体大小为24
         self.toast_label.setStyleSheet(
             'QLabel {'
-            '   color: rgb(0, 191, 255);'  # 设置为亮蓝色
+            '   color: ' + config.TOAST_FONT_COLOR + ';'  # 使用配置文件中的颜色
             '   padding: 10px;'
             '   background-color: transparent;'
             '   border: none;'
