@@ -64,7 +64,7 @@ class TimerWindow(QMainWindow):
     def init_ui(self):
         """初始化用户界面"""
         self.setWindowTitle('SC2 Timer')
-        self.setGeometry(0, 300, 167, 250)  # 调整初始窗口位置，x坐标设为0
+        self.setGeometry(0, 300, 167, 30)  # 调整初始窗口位置，x坐标设为0
         
         # 设置窗口样式
         self.setWindowFlags(
@@ -76,10 +76,14 @@ class TimerWindow(QMainWindow):
         self.setAttribute(Qt.WA_TranslucentBackground)  # 透明背景
         self.setAttribute(Qt.WA_NoSystemBackground)  # 禁用系统背景
         self.setAttribute(Qt.WA_X11NetWmWindowTypeDesktop)  # 禁用桌面管理器的窗口管理
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)  # 默认设置鼠标事件穿透
+        
+        # 添加键盘事件监听变量
+        self.ctrl_pressed = False
         
         # 创建主容器控件
         self.main_container = QWidget(self)
-        self.main_container.setGeometry(0, 0, 167, 250)  # 调整主容器初始高度
+        self.main_container.setGeometry(0, 0, 167, 50)  # 调整主容器初始高度
         self.main_container.setStyleSheet('background-color: rgba(43, 43, 43, 96)')
         
         # 创建时间显示标签
@@ -127,45 +131,9 @@ class TimerWindow(QMainWindow):
         # 设置表格的滚动条策略
         self.table_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.table_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        # 创建图像显示区（使用QScrollArea实现垂直滚动）
-        from PyQt5.QtWidgets import QScrollArea
-        self.image_scroll_area = QScrollArea(self.main_container)
-        self.image_scroll_area.setGeometry(0, 250, 167, 85)  # 调整位置到文本区域下方，设置合适的高度
+ 
         self.setFixedSize(167, 250)  # 固定窗口大小为250
-        # 修改后的滚动条样式
-        self.image_scroll_area.setStyleSheet('''
-            QScrollArea, QScrollArea QWidget {
-                background-color: rgba(30, 30, 30, 96);
-                border: none;
-                border-radius: 5px;
-            }
-            QScrollBar:vertical, QScrollBar:horizontal {
-                width: 0px;
-                height: 0px;
-                background: transparent;
-            }
-            QScrollBar::handle:vertical, QScrollBar::handle:horizontal {
-                background: transparent;
-            }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,
-            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
-                height: 0px;
-                width: 0px;
-            }
-            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical,
-            QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
-                background: transparent;
-            }''')
-        # 设置滚动区域的滚动条策略
-        self.image_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.image_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # 修改为始终隐藏垂直滚动条
-        self.image_scroll_area.setWidgetResizable(True)  # 允许内容调整大小
-        
-        # 创建图像标签并添加到滚动区域
-        self.image_label = QLabel()
-        self.image_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        self.image_scroll_area.setWidget(self.image_label)
-        self.image_scroll_area.hide()  # 默认隐藏
+ 
         
         # 调整主窗口大小以适应新添加的控件
         self.main_container.setGeometry(0, 0, 167, 335)  # 调整容器高度
@@ -502,17 +470,20 @@ class TimerWindow(QMainWindow):
 
     def mousePressEvent(self, event):
         """鼠标按下事件，用于实现窗口拖动"""
-        if event.button() == Qt.LeftButton:
-            # 获取点击位置相对于窗口的坐标
-            pos = event.pos()
-            # 检查点击位置是否在地图标签区域内
-            map_area = QRect(10, 5, 30, 30)  # 只允许通过地图标签区域拖动
-            if map_area.contains(pos):
-                self.drag_position = event.globalPos() - self.frameGeometry().topLeft()
-                self.is_dragging = True  # 添加拖动状态标记
-                event.accept()
-            else:
-                event.ignore()
+        if self.ctrl_pressed:
+            if event.button() == Qt.LeftButton:
+                # 获取点击位置相对于窗口的坐标
+                pos = event.pos()
+                # 检查点击位置是否在地图标签区域内
+                map_area = QRect(10, 5, 30, 30)  # 只允许通过地图标签区域拖动
+                if map_area.contains(pos):
+                    self.drag_position = event.globalPos() - self.frameGeometry().topLeft()
+                    self.is_dragging = True  # 添加拖动状态标记
+                    event.accept()
+                else:
+                    event.ignore()
+        else:
+            event.ignore()
 
     def mouseMoveEvent(self, event):
         """鼠标移动事件，用于实现窗口拖动"""
@@ -735,17 +706,20 @@ class TimerWindow(QMainWindow):
 
     def mousePressEvent(self, event):
         """鼠标按下事件，用于实现窗口拖动"""
-        if event.button() == Qt.LeftButton:
-            # 获取点击位置相对于窗口的坐标
-            pos = event.pos()
-            # 检查点击位置是否在地图标签区域内
-            map_area = QRect(10, 5, 30, 30)  # 只允许通过地图标签区域拖动
-            if map_area.contains(pos):
-                self.drag_position = event.globalPos() - self.frameGeometry().topLeft()
-                self.is_dragging = True  # 添加拖动状态标记
-                event.accept()
-            else:
-                event.ignore()
+        if self.ctrl_pressed:
+            if event.button() == Qt.LeftButton:
+                # 获取点击位置相对于窗口的坐标
+                pos = event.pos()
+                # 检查点击位置是否在地图标签区域内
+                map_area = QRect(10, 5, 30, 30)  # 只允许通过地图标签区域拖动
+                if map_area.contains(pos):
+                    self.drag_position = event.globalPos() - self.frameGeometry().topLeft()
+                    self.is_dragging = True  # 添加拖动状态标记
+                    event.accept()
+                else:
+                    event.ignore()
+        else:
+            event.ignore()
 
     def mouseMoveEvent(self, event):
         """鼠标移动事件，用于实现窗口拖动"""
@@ -855,6 +829,20 @@ class TimerWindow(QMainWindow):
                     event_text = event_item.text().strip()
                     selected_text = f"{time_text} {event_text}" if time_text else event_text
                     self.show_toast(selected_text, config.TOAST_DURATION)  # 设置5000毫秒（5秒）后自动消失
+            event.accept()
+            
+    def keyPressEvent(self, event):
+        """键盘按下事件处理"""
+        if event.key() == Qt.Key_Control:
+            self.ctrl_pressed = True
+            self.setAttribute(Qt.WA_TransparentForMouseEvents, False)  # 禁用鼠标事件穿透
+            event.accept()
+
+    def keyReleaseEvent(self, event):
+        """键盘释放事件处理"""
+        if event.key() == Qt.Key_Control:
+            self.ctrl_pressed = False
+            self.setAttribute(Qt.WA_TransparentForMouseEvents, True)  # 启用鼠标事件穿透
             event.accept()
 
 def main():
