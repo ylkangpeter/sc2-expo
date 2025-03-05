@@ -5,6 +5,7 @@ import time
 import logging
 import traceback
 from PyQt5.QtWidgets import QMainWindow, QWidget, QLabel, QSystemTrayIcon, QMenu, QAction, QApplication, QComboBox, QTableWidgetItem, QPushButton, QTableWidget, QHeaderView
+from control_window import ControlWindow
 from PyQt5.QtGui import QFont, QIcon, QPixmap, QBrush, QColor
 from PyQt5.QtCore import Qt, QTimer, QPoint, pyqtSignal, QRect
 import config
@@ -39,6 +40,30 @@ class TimerWindow(QMainWindow):
         # 初始化UI
         self.init_ui()
         
+        # 创建控制窗体
+        self.control_window = ControlWindow()
+        self.control_window.move(self.x(), self.y() - self.control_window.height())
+        self.control_window.show()
+
+        # 连接控制窗口的状态改变信号
+        self.control_window.state_changed.connect(self.on_control_state_changed)
+        
+        # 监听主窗口位置变化
+        self.windowHandle().windowStateChanged.connect(self.update_control_window_position)
+        
+        # 初始化时设置为锁定状态（不可点击）
+        # 使用延迟调用，确保窗口已完全初始化
+        QTimer.singleShot(100, lambda: self.on_control_state_changed(False))
+
+    def update_control_window_position(self):
+        # 保持控制窗口与主窗口位置同步
+        self.control_window.move(self.x(), self.y() - self.control_window.height())
+
+    def moveEvent(self, event):
+        # 主窗口移动时更新控制窗口位置
+        super().moveEvent(event)
+        if hasattr(self, 'control_window'):
+            self.update_control_window_position()
         # 初始化Toast提示
         self.init_toast()
         
@@ -67,7 +92,7 @@ class TimerWindow(QMainWindow):
         self.setWindowTitle('SC2 Timer')
         self.setGeometry(0, 300, 167, 30)  # 调整初始窗口位置，x坐标设为0
         
-        # 设置窗口样式
+        # 设置窗口样式 - 不设置点击穿透，这将由on_control_state_changed方法控制
         self.setWindowFlags(
             Qt.FramelessWindowHint |  # 无边框
             Qt.WindowStaysOnTopHint |  # 置顶
@@ -76,8 +101,6 @@ class TimerWindow(QMainWindow):
         )
         self.setAttribute(Qt.WA_TranslucentBackground)  # 透明背景
         self.setAttribute(Qt.WA_NoSystemBackground)  # 禁用系统背景
-        self.setAttribute(Qt.WA_X11NetWmWindowTypeDesktop)  # 禁用桌面管理器的窗口管理
-        self.setAttribute(Qt.WA_TransparentForMouseEvents)  # 默认设置鼠标事件穿透
         
         # 添加键盘事件监听变量
         self.ctrl_pressed = False
@@ -93,6 +116,7 @@ class TimerWindow(QMainWindow):
         self.time_label.setStyleSheet('color: rgb(0, 255, 128); background-color: transparent')
         self.time_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.time_label.setGeometry(10, 40, 120, 20)  # 将宽度从100px增加到120px
+        self.time_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)  # 添加鼠标事件穿透
 
         # 创建表格显示区
         from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView
@@ -145,6 +169,7 @@ class TimerWindow(QMainWindow):
         self.map_label.setStyleSheet('color: white; background-color: transparent')
         self.map_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.map_label.setGeometry(10, 5, 30, 30)
+        self.map_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)  # 添加鼠标事件穿透
     
         # 创建下拉框
         self.combo_box = QComboBox(self.main_container)
@@ -345,6 +370,12 @@ class TimerWindow(QMainWindow):
     
     def init_tray(self):
         """初始化系统托盘"""
+        # 如果已存在托盘图标，先删除它
+        if hasattr(self, 'tray_icon') and self.tray_icon is not None:
+            self.tray_icon.hide()
+            self.tray_icon.deleteLater()
+            self.logger.info('已删除旧的托盘图标')
+
         self.tray_icon = QSystemTrayIcon(self)
         icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ico', 'fav.ico')
         self.tray_icon.setIcon(QIcon(icon_path))
@@ -360,118 +391,26 @@ class TimerWindow(QMainWindow):
         tray_menu.addAction(show_action)
         tray_menu.addAction(quit_action)
         
+        # 设置托盘菜单的位置
+        def show_context_menu(point):
+            # 获取托盘图标的位置
+            tray_geometry = self.tray_icon.geometry()
+            # 将菜单显示在托盘图标的正上方
+            tray_menu.exec_(QPoint(tray_geometry.x(), tray_geometry.y() - tray_menu.sizeHint().height()))
+        
+        # 连接自定义的上下文菜单显示函数
+        self.tray_icon.activated.connect(lambda reason: show_context_menu(None) if reason == QSystemTrayIcon.Context else None)
+        
         self.tray_icon.setContextMenu(tray_menu)
         self.tray_icon.show()
-    
-    def toggle_visibility(self):
-        """切换窗口显示状态"""
-        if self.time_label.isVisible():
-            self.time_label.hide()
-            self.show_button.setText('显示')
-        else:
-            self.time_label.show()
-            self.show_button.setText('隐藏')
-    
-    def update_display_images(self):
-        if self.image_scroll_area.isHidden():
-            return
-
-        # 获取原始图像和裁剪图像
-        full_image, cropped_image = self.image_processor.capture_game_time()
-        if not full_image or not cropped_image:
-            return
-
-        # 获取滚动区域的可见宽度
-        scroll_width = self.image_scroll_area.width() - 20  # 减去滚动条宽度
-
-        # 降低原始图像分辨率
-        width, height = full_image.size
-        new_width = width // 2
-        new_height = height // 2
-        resized_full_image = full_image.resize((new_width, new_height))
-
-        # 在原始图像上标记裁剪区域
-        marked_image = resized_full_image.copy()
-        draw = ImageDraw.Draw(marked_image)
-        left, top, crop_width, crop_height, bottom = self.image_processor.get_crop_area(width, height)
-        # 调整裁剪区域坐标以匹配缩放后的图像
-        left = left // 2
-        top = top // 2
-        crop_width = crop_width // 2
-        bottom = bottom // 2
-        draw.rectangle([left, top, left + crop_width, bottom], outline='red', width=2)
-
-        # 创建用于显示的图像列表
-        images = [resized_full_image, marked_image]
-        
-        # 添加裁剪后的图像（用于OCR识别的图片）
-        if cropped_image:
-            # 确保裁剪图像为RGB模式
-            if cropped_image.mode != 'RGB':
-                cropped_image = cropped_image.convert('RGB')
-            # 调整裁剪图像的大小以匹配其他图像
-            crop_width, crop_height = cropped_image.size
-            crop_scale = new_width / crop_width
-            resized_crop = cropped_image.resize((new_width, int(crop_height * crop_scale)))
-            images.append(resized_crop)
-            
-            # 尝试OCR识别，如果失败则添加预处理后的图像
-            result = self.image_processor.recognize_time(cropped_image)
-            if result == "无法识别时间":
-                processed_image = self.image_processor.process_image(cropped_image)
-                if processed_image:
-                    # 确保预处理图像为RGB模式
-                    if processed_image.mode != 'RGB':
-                        processed_image = processed_image.convert('RGB')
-                    # 调整预处理图像的大小
-                    proc_width, proc_height = processed_image.size
-                    proc_scale = new_width / proc_width
-                    resized_proc = processed_image.resize((new_width, int(proc_height * proc_scale)))
-                    images.append(resized_proc)
-
-        # 计算总高度和最大宽度
-        max_width = max(img.size[0] for img in images)
-        total_height = sum(img.size[1] for img in images)
-
-        # 计算每张图片的缩放比例，使其宽度适应滚动区域
-        scale = scroll_width / max_width
-
-        # 创建组合图像
-        scaled_width = scroll_width
-        scaled_height = int(total_height * scale)
-        combined_image = Image.new('RGB', (max_width, total_height))
-        y_offset = 0
-
-        # 将所有图像垂直排列粘贴到组合图像中
-        for img in images:
-            if img.mode != 'RGB':
-                img = img.convert('RGB')
-            # 调整每张图片的大小，保持宽高比
-            img_width = img.size[0]
-            img_height = img.size[1]
-            img_scale = max_width / img_width
-            resized_img = img.resize((max_width, int(img_height * img_scale)))
-            combined_image.paste(resized_img, (0, y_offset))
-            y_offset += resized_img.size[1]
-
-        # 缩放组合图像以适应滚动区域宽度
-        combined_image = combined_image.resize((scaled_width, scaled_height), Image.Resampling.LANCZOS)
-
-        # 转换为Qt图像并显示
-        img_array = np.array(combined_image)
-        height, width, channel = img_array.shape
-        bytes_per_line = channel * width
-        qt_image = QImage(img_array.data, width, height, bytes_per_line, QImage.Format_RGB888).copy()
-        pixmap = QPixmap.fromImage(qt_image)
-        
-        # 设置图像到标签并调整滚动区域
-        self.image_label.setPixmap(pixmap)
-        self.image_label.setFixedSize(pixmap.size())
-        self.image_scroll_area.ensureVisible(0, 0)  # 确保滚动区域可见
+        self.logger.info('已创建新的托盘图标')
 
     def mousePressEvent(self, event):
         """鼠标按下事件，用于实现窗口拖动"""
-        if self.ctrl_pressed:
+        # 检查窗口是否处于可点击状态（非锁定状态）
+        is_clickable = not self.testAttribute(Qt.WA_TransparentForMouseEvents)
+        
+        if is_clickable:  # 窗口可点击时
             if event.button() == Qt.LeftButton:
                 # 获取点击位置相对于窗口的坐标
                 pos = event.pos()
@@ -483,8 +422,18 @@ class TimerWindow(QMainWindow):
                     event.accept()
                 else:
                     event.ignore()
-        else:
-            event.ignore()
+        else:  # 窗口不可点击时，保持原有的Ctrl按住才能拖动的逻辑
+            if self.ctrl_pressed and event.button() == Qt.LeftButton:
+                pos = event.pos()
+                map_area = QRect(10, 5, 30, 30)
+                if map_area.contains(pos):
+                    self.drag_position = event.globalPos() - self.frameGeometry().topLeft()
+                    self.is_dragging = True
+                    event.accept()
+                else:
+                    event.ignore()
+            else:
+                event.ignore()
 
     def mouseMoveEvent(self, event):
         """鼠标移动事件，用于实现窗口拖动"""
@@ -498,6 +447,69 @@ class TimerWindow(QMainWindow):
             self.is_dragging = False
             event.accept()
 
+    def on_control_state_changed(self, unlocked):
+        """处理控制窗口状态改变事件
+        
+        Args:
+            unlocked: 是否解锁，True表示解锁状态（可点击），False表示锁定状态（不可点击）
+        """
+        self.logger.info(f'控制窗口状态改变: unlocked={unlocked}')
+        
+        # 在Windows平台上，直接使用Windows API设置窗口样式
+        if sys.platform == 'win32':
+            try:
+                import ctypes
+                from ctypes import wintypes
+                
+                # 定义Windows API常量
+                GWL_EXSTYLE = -20
+                WS_EX_TRANSPARENT = 0x00000020
+                WS_EX_LAYERED = 0x00080000
+                
+                # 获取窗口句柄
+                hwnd = int(self.winId())
+                
+                # 获取当前窗口样式
+                ex_style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+                self.logger.info(f'当前窗口样式: {ex_style}')
+                
+                if not unlocked:  # 锁定状态（不可点击）
+                    # 添加透明样式
+                    new_ex_style = ex_style | WS_EX_TRANSPARENT | WS_EX_LAYERED
+                    self.logger.info(f'设置窗口为不可点击状态，样式从 {ex_style} 更改为 {new_ex_style}')
+                else:  # 解锁状态（可点击）
+                    # 移除透明样式，但保留WS_EX_LAYERED
+                    new_ex_style = (ex_style & ~WS_EX_TRANSPARENT) | WS_EX_LAYERED
+                    self.logger.info(f'设置窗口为可点击状态，样式从 {ex_style} 更改为 {new_ex_style}')
+                
+                # 设置新样式
+                result = ctypes.windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, new_ex_style)
+                if result == 0:
+                    error = ctypes.windll.kernel32.GetLastError()
+                    self.logger.error(f'SetWindowLongW失败，错误码: {error}')
+                    
+                # 强制窗口重绘
+                ctypes.windll.user32.SetWindowPos(
+                    hwnd, 0, 0, 0, 0, 0, 
+                    0x0001 | 0x0002 | 0x0004 | 0x0020  # SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_FRAMECHANGED
+                )
+                
+            except Exception as e:
+                self.logger.error(f'设置Windows平台点击穿透失败: {str(e)}')
+                self.logger.error(traceback.format_exc())
+        else:
+            # 非Windows平台使用Qt的方法
+            self.hide()  # 先隐藏窗口
+            
+            if not unlocked:  # 锁定状态（不可点击）
+                self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+                self.logger.info('已设置窗口为不可点击状态')
+            else:  # 解锁状态（可点击）
+                self.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+                self.logger.info('已设置窗口为可点击状态')
+                
+            self.show()  # 重新显示窗口
+    
     def closeEvent(self, event):
         """关闭事件"""
         event.ignore()
@@ -513,12 +525,6 @@ class TimerWindow(QMainWindow):
                 self.combo_box.setCurrentIndex(index)
                 # 手动调用地图选择事件处理函数，确保加载地图文件
                 self.on_map_selected(data[1])
-
-    def on_text_double_click(self, event):
-        """双击事件处理"""
-        if event.button() == Qt.LeftButton:
-            # 不再调用toggle_update，直接接受事件
-            event.accept()
 
     def on_map_selected(self, map_name):
         """处理地图选择变化事件"""
@@ -607,155 +613,6 @@ class TimerWindow(QMainWindow):
             
         except Exception as e:
             self.logger.error(f'加载地图文件时出错: {str(e)}')
-
-    def update_display_images(self):
-        if self.image_scroll_area.isHidden():
-            return
-
-        # 获取原始图像和裁剪图像
-        full_image, cropped_image = self.image_processor.capture_game_time()
-        if not full_image or not cropped_image:
-            return
-
-        # 获取滚动区域的可见宽度
-        scroll_width = self.image_scroll_area.width() - 20  # 减去滚动条宽度
-
-        # 降低原始图像分辨率
-        width, height = full_image.size
-        new_width = width // 2
-        new_height = height // 2
-        resized_full_image = full_image.resize((new_width, new_height))
-
-        # 在原始图像上标记裁剪区域
-        marked_image = resized_full_image.copy()
-        draw = ImageDraw.Draw(marked_image)
-        left, top, crop_width, crop_height, bottom = self.image_processor.get_crop_area(width, height)
-        # 调整裁剪区域坐标以匹配缩放后的图像
-        left = left // 2
-        top = top // 2
-        crop_width = crop_width // 2
-        bottom = bottom // 2
-        draw.rectangle([left, top, left + crop_width, bottom], outline='red', width=2)
-
-        # 创建用于显示的图像列表
-        images = [resized_full_image, marked_image]
-        
-        # 添加裁剪后的图像（用于OCR识别的图片）
-        if cropped_image:
-            # 确保裁剪图像为RGB模式
-            if cropped_image.mode != 'RGB':
-                cropped_image = cropped_image.convert('RGB')
-            # 调整裁剪图像的大小以匹配其他图像
-            crop_width, crop_height = cropped_image.size
-            crop_scale = new_width / crop_width
-            resized_crop = cropped_image.resize((new_width, int(crop_height * crop_scale)))
-            images.append(resized_crop)
-            
-            # 尝试OCR识别，如果失败则添加预处理后的图像
-            result = self.image_processor.recognize_time(cropped_image)
-            if result == "无法识别时间":
-                processed_image = self.image_processor.process_image(cropped_image)
-                if processed_image:
-                    # 确保预处理图像为RGB模式
-                    if processed_image.mode != 'RGB':
-                        processed_image = processed_image.convert('RGB')
-                    # 调整预处理图像的大小
-                    proc_width, proc_height = processed_image.size
-                    proc_scale = new_width / proc_width
-                    resized_proc = processed_image.resize((new_width, int(proc_height * proc_scale)))
-                    images.append(resized_proc)
-
-        # 计算总高度和最大宽度
-        max_width = max(img.size[0] for img in images)
-        total_height = sum(img.size[1] for img in images)
-
-        # 计算每张图片的缩放比例，使其宽度适应滚动区域
-        scale = scroll_width / max_width
-
-        # 创建组合图像
-        scaled_width = scroll_width
-        scaled_height = int(total_height * scale)
-        combined_image = Image.new('RGB', (max_width, total_height))
-        y_offset = 0
-
-        # 将所有图像垂直排列粘贴到组合图像中
-        for img in images:
-            if img.mode != 'RGB':
-                img = img.convert('RGB')
-            # 调整每张图片的大小，保持宽高比
-            img_width = img.size[0]
-            img_height = img.size[1]
-            img_scale = max_width / img_width
-            resized_img = img.resize((max_width, int(img_height * img_scale)))
-            combined_image.paste(resized_img, (0, y_offset))
-            y_offset += resized_img.size[1]
-
-        # 缩放组合图像以适应滚动区域宽度
-        combined_image = combined_image.resize((scaled_width, scaled_height), Image.Resampling.LANCZOS)
-
-        # 转换为Qt图像并显示
-        img_array = np.array(combined_image)
-        height, width, channel = img_array.shape
-        bytes_per_line = channel * width
-        qt_image = QImage(img_array.data, width, height, bytes_per_line, QImage.Format_RGB888).copy()
-        pixmap = QPixmap.fromImage(qt_image)
-        
-        # 设置图像到标签并调整滚动区域
-        self.image_label.setPixmap(pixmap)
-        self.image_label.setFixedSize(pixmap.size())
-        self.image_scroll_area.ensureVisible(0, 0)  # 确保滚动区域可见
-
-    def mousePressEvent(self, event):
-        """鼠标按下事件，用于实现窗口拖动"""
-        if self.ctrl_pressed:
-            if event.button() == Qt.LeftButton:
-                # 获取点击位置相对于窗口的坐标
-                pos = event.pos()
-                # 检查点击位置是否在地图标签区域内
-                map_area = QRect(10, 5, 30, 30)  # 只允许通过地图标签区域拖动
-                if map_area.contains(pos):
-                    self.drag_position = event.globalPos() - self.frameGeometry().topLeft()
-                    self.is_dragging = True  # 添加拖动状态标记
-                    event.accept()
-                else:
-                    event.ignore()
-        else:
-            event.ignore()
-
-    def mouseMoveEvent(self, event):
-        """鼠标移动事件，用于实现窗口拖动"""
-        if event.buttons() & Qt.LeftButton and hasattr(self, 'is_dragging') and self.is_dragging:
-            self.move(event.globalPos() - self.drag_position)
-            event.accept()
-
-    def mouseReleaseEvent(self, event):
-        """鼠标释放事件"""
-        if event.button() == Qt.LeftButton:
-            self.is_dragging = False
-            event.accept()
-
-    def closeEvent(self, event):
-        """关闭事件"""
-        event.ignore()
-        self.hide()
-        
-    def handle_progress_update(self, data):
-        """处理进度更新信号"""
-        if data[0] == 'update_map':
-            # 在下拉框中查找并选择地图
-            index = self.combo_box.findText(data[1])
-            if index >= 0:
-                self.logger.info(f'找到地图 {data[1]}，更新下拉框选择')
-                self.combo_box.setCurrentIndex(index)
-                # 手动调用地图选择事件处理函数，确保加载地图文件
-                self.on_map_selected(data[1])
-
-    def on_text_double_click(self, event):
-        """双击事件处理"""
-        if event.button() == Qt.LeftButton:
-            # 不再调用toggle_update，直接接受事件
-            event.accept()
-
 
     def init_toast(self):
         """初始化Toast提示组件"""
