@@ -381,7 +381,23 @@ class TimerWindow(QMainWindow):
             self.logger.info('已删除旧的托盘图标')
 
         self.tray_icon = QSystemTrayIcon(self)
-        icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ico', 'fav.ico')
+        
+        # 修改图标路径获取方式
+        if getattr(sys, 'frozen', False):
+            # 如果是打包后的exe
+            base_path = os.path.dirname(sys.executable)
+        else:
+            # 如果是开发环境
+            base_path = os.path.dirname(os.path.dirname(__file__))
+            
+        icon_path = os.path.join(base_path, 'ico', 'fav.ico')
+        self.logger.info(f'加载托盘图标: {icon_path}')
+        
+        if not os.path.exists(icon_path):
+            self.logger.error(f'托盘图标文件不存在: {icon_path}')
+        else:
+            self.logger.info('找到托盘图标文件')
+            
         self.tray_icon.setIcon(QIcon(icon_path))
         
         # 创建托盘菜单
