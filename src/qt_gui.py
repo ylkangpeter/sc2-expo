@@ -37,8 +37,25 @@ class TimerWindow(QMainWindow):
         self.current_time = ""
         self.drag_position = QPoint(0, 0)
         
+        # 添加一个标志来追踪地图选择的来源
+        self.manual_map_selection = False
+        
         # 初始化UI
         self.init_ui()
+        
+        # 初始化Toast提示
+        self.init_toast()
+        
+        # 初始化定时器
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_game_time)
+        self.timer.start(100)  # 自动开始更新，每100毫秒更新一次
+        
+        # 连接表格区域的双击事件
+        self.table_area.mouseDoubleClickEvent = self.on_text_double_click
+        
+        # 初始化系统托盘
+        self.init_tray()
         
         # 创建控制窗体
         self.control_window = ControlWindow()
@@ -51,6 +68,15 @@ class TimerWindow(QMainWindow):
         # 监听主窗口位置变化
         self.windowHandle().windowStateChanged.connect(self.update_control_window_position)
         
+        # 连接信号到处理函数
+        self.progress_signal.connect(self.handle_progress_update)
+        
+        # 启动游戏检查线程
+        from mainfunctions import check_for_new_game
+        import threading
+        self.game_check_thread = threading.Thread(target=check_for_new_game, args=(self.progress_signal,), daemon=True)
+        self.game_check_thread.start()
+        
         # 初始化时设置为锁定状态（不可点击）
         # 使用延迟调用，确保窗口已完全初始化
         QTimer.singleShot(100, lambda: self.on_control_state_changed(False))
@@ -60,33 +86,11 @@ class TimerWindow(QMainWindow):
         self.control_window.move(self.x(), self.y() - self.control_window.height())
 
     def moveEvent(self, event):
-        # 主窗口移动时更新控制窗口位置
+        """鼠标移动事件，用于更新控制窗口位置"""
         super().moveEvent(event)
         if hasattr(self, 'control_window'):
             self.update_control_window_position()
-        # 初始化Toast提示
-        self.init_toast()
         
-        # 初始化定时器
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.update_game_time)
-        self.timer.start(100)  # 自动开始更新，每500毫秒更新一次
-        
-        # 连接表格区域的双击事件
-        self.table_area.mouseDoubleClickEvent = self.on_text_double_click
-        
-        # 初始化系统托盘
-        self.init_tray()
-        
-        # 连接信号到处理函数
-        self.progress_signal.connect(self.handle_progress_update)
-        
-        # 启动游戏检查线程
-        from mainfunctions import check_for_new_game
-        import threading
-        self.game_check_thread = threading.Thread(target=check_for_new_game, args=(self.progress_signal,), daemon=True)
-        self.game_check_thread.start()
-    
     def init_ui(self):
         """初始化用户界面"""
         self.setWindowTitle('SC2 Timer')
@@ -519,15 +523,28 @@ class TimerWindow(QMainWindow):
         """处理进度更新信号"""
         if data[0] == 'update_map':
             # 在下拉框中查找并选择地图
-            index = self.combo_box.findText(data[1])
+            map_name = data[1]
+            self.logger.info(f'收到地图更新信号: {map_name}')
+            
+            # 如果是新游戏开始，强制更新地图
+            index = self.combo_box.findText(map_name)
             if index >= 0:
-                self.logger.info(f'找到地图 {data[1]}，更新下拉框选择')
+                self.logger.info(f'找到地图 {map_name}，更新下拉框选择')
+                # 暂时禁用手动选择标志
+                self.manual_map_selection = False
                 self.combo_box.setCurrentIndex(index)
                 # 手动调用地图选择事件处理函数，确保加载地图文件
-                self.on_map_selected(data[1])
+                self.on_map_selected(map_name)
+            else:
+                self.logger.warning(f'未在下拉框中找到地图: {map_name}')
 
     def on_map_selected(self, map_name):
         """处理地图选择变化事件"""
+        # 检查是否是由用户手动选择触发的
+        if not self.manual_map_selection and self.sender() == self.combo_box:
+            self.manual_map_selection = True
+            self.logger.info('用户手动选择了地图')
+        
         try:
             # 获取地图文件的完整路径
             # 首先尝试在当前目录查找resources目录
