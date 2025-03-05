@@ -26,7 +26,6 @@ def build_exe():
         "--windowed "
         "--onefile "
         "--clean "
-        "--add-data=\"ico;ico\" "
         "--add-data=\"img;img\" "
         "src/main.py"
     )
@@ -48,6 +47,14 @@ def build_exe():
                 shutil.copytree(src_path, dst_path)
             else:
                 shutil.copy2(src_path, dst_path)
+    
+    # 复制ico目录到dist
+    print("复制ico目录到dist文件夹...")
+    ico_dist_dir = os.path.join('dist', 'ico')
+    if os.path.exists('ico'):
+        if os.path.exists(ico_dist_dir):
+            shutil.rmtree(ico_dist_dir)
+        shutil.copytree('ico', ico_dist_dir)
     
     # 复制config.py到dist目录
     print("复制config.py到dist文件夹...")
