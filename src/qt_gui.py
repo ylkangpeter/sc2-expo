@@ -6,7 +6,7 @@ import logging
 import traceback
 from PyQt5.QtWidgets import QMainWindow, QWidget, QLabel, QSystemTrayIcon, QMenu, QAction, QApplication, QComboBox, QTableWidgetItem, QPushButton, QTableWidget, QHeaderView
 from control_window import ControlWindow
-from PyQt5.QtGui import QFont, QIcon, QPixmap, QBrush, QColor
+from PyQt5.QtGui import QFont, QIcon, QPixmap, QBrush, QColor, QCursor
 from PyQt5.QtCore import Qt, QTimer, QPoint, pyqtSignal, QRect
 import config
 from PyQt5 import QtCore
@@ -265,8 +265,14 @@ class TimerWindow(QMainWindow):
         # 调整时间标签的位置和高度
         self.time_label.setGeometry(10, 40, 100, 20)
         
-        # 显示窗口
+        # 显示窗口并强制置顶
         self.show()
+        if sys.platform == 'win32':
+            import win32gui
+            import win32con
+            hwnd = int(self.winId())
+            win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, 0, 0, 0, 0, 
+                                win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOACTIVATE)
     
     def update_game_time(self):
         """更新游戏时间显示"""
@@ -412,14 +418,36 @@ class TimerWindow(QMainWindow):
         tray_menu.addAction(quit_action)
         
         # 设置托盘菜单的位置
-        def show_context_menu(point):
-            # 获取托盘图标的位置
-            tray_geometry = self.tray_icon.geometry()
-            # 将菜单显示在托盘图标的正上方
-            tray_menu.exec_(QPoint(tray_geometry.x(), tray_geometry.y() - tray_menu.sizeHint().height()))
+        def show_context_menu(reason):
+            if reason == QSystemTrayIcon.Context:  # 右键点击
+                if sys.platform == 'win32':
+                    import win32gui
+                    try:
+                        # 获取鼠标位置
+                        cursor_pos = win32gui.GetCursorPos()
+                        
+                        # 调整菜单位置
+                        menu_x = cursor_pos[0]
+                        menu_y = cursor_pos[1] - tray_menu.sizeHint().height()
+                        
+                        # 确保菜单不会超出屏幕
+                        screen = QApplication.primaryScreen().geometry()
+                        if menu_y < 0:
+                            menu_y = cursor_pos[1]
+                        if menu_x + tray_menu.sizeHint().width() > screen.width():
+                            menu_x = screen.width() - tray_menu.sizeHint().width()
+                            
+                        tray_menu.exec_(QPoint(menu_x, menu_y))
+                    except Exception as e:
+                        self.logger.error(f'显示托盘菜单时出错: {str(e)}')
+                        # 如果出错，回退到默认位置
+                        tray_menu.exec_(QCursor.pos())
+                else:
+                    # 非Windows系统使用默认位置
+                    tray_menu.exec_(QCursor.pos())
         
-        # 连接自定义的上下文菜单显示函数
-        self.tray_icon.activated.connect(lambda reason: show_context_menu(None) if reason == QSystemTrayIcon.Context else None)
+        # 连接托盘图标的点击事件
+        self.tray_icon.activated.connect(show_context_menu)
         
         self.tray_icon.setContextMenu(tray_menu)
         self.tray_icon.show()
@@ -735,6 +763,16 @@ class TimerWindow(QMainWindow):
             self.ctrl_pressed = False
             self.setAttribute(Qt.WA_TransparentForMouseEvents, True)  # 启用鼠标事件穿透
             event.accept()
+
+    def showEvent(self, event):
+        """窗口显示事件，确保窗口始终保持在最上层"""
+        super().showEvent(event)
+        if sys.platform == 'win32':
+            import win32gui
+            import win32con
+            hwnd = int(self.winId())
+            win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, 0, 0, 0, 0, 
+                                win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOACTIVATE)
 
 def main():
     app = QApplication(sys.argv)

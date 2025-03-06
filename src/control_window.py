@@ -65,3 +65,13 @@ class ControlWindow(QMainWindow):
         icon = self.lock_icon if self.is_locked else self.unlock_icon
         pixmap = icon.pixmap(20, 20)  # 创建固定大小的图标
         self.icon_label.setPixmap(pixmap)
+
+    def showEvent(self, event):
+        """窗口显示事件，确保窗口始终保持在最上层"""
+        super().showEvent(event)
+        if sys.platform == 'win32':
+            import win32gui
+            import win32con
+            hwnd = int(self.winId())
+            win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, 0, 0, 0, 0, 
+                                win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOACTIVATE)
