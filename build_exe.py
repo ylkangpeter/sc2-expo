@@ -1,14 +1,65 @@
 import os
 import sys
 import shutil
+import zipfile
+from datetime import datetime
 
 def clean_build_folders():
-    """清理构建文件夹"""
+    """清理构建文件夹和旧的压缩包"""
+    # 清理文件夹
     folders_to_clean = ['build', 'dist']
     for folder in folders_to_clean:
         if os.path.exists(folder):
             print(f"清理 {folder} 文件夹...")
             shutil.rmtree(folder)
+    
+    # 清理旧的zip文件
+    zip_file = "SC2_Timer.zip"
+    if os.path.exists(zip_file):
+        print(f"删除旧的压缩包: {zip_file}")
+        os.remove(zip_file)
+
+def create_zip():
+    """创建zip压缩包"""
+    print("\n开始创建压缩包...")
+    zip_file = os.path.join('dist', "SC2_Timer.zip")
+    
+    with zipfile.ZipFile(zip_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        # 添加exe文件
+        exe_path = os.path.join('dist', 'SC2 Timer.exe')
+        if os.path.exists(exe_path):
+            print(f"添加文件: SC2 Timer.exe")
+            zipf.write(exe_path, 'SC2 Timer.exe')
+        
+        # 添加resources文件夹
+        resources_dir = os.path.join('dist', 'resources')
+        if os.path.exists(resources_dir):
+            print("添加resources文件夹...")
+            for root, _, files in os.walk(resources_dir):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    arcname = os.path.relpath(file_path, 'dist')
+                    print(f"添加文件: {arcname}")
+                    zipf.write(file_path, arcname)
+        
+        # 添加ico文件夹
+        ico_dir = os.path.join('dist', 'ico')
+        if os.path.exists(ico_dir):
+            print("添加ico文件夹...")
+            for root, _, files in os.walk(ico_dir):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    arcname = os.path.relpath(file_path, 'dist')
+                    print(f"添加文件: {arcname}")
+                    zipf.write(file_path, arcname)
+        
+        # 添加config.py
+        config_path = os.path.join('dist', 'config.py')
+        if os.path.exists(config_path):
+            print(f"添加文件: config.py")
+            zipf.write(config_path, 'config.py')
+    
+    print(f"\n压缩包创建完成: {zip_file}")
 
 def build_exe():
     """使用PyInstaller打包应用"""
@@ -69,6 +120,8 @@ def build_exe():
     if result == 0:
         print("\n构建成功!")
         print("可执行文件位于 dist 文件夹中")
+        # 创建zip压缩包
+        create_zip()
     else:
         print("\n构建失败!")
         print("请检查错误信息并修复问题")
