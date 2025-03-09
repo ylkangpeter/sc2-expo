@@ -179,7 +179,16 @@ class TimerWindow(QMainWindow):
         self.combo_box = QComboBox(self.main_container)
         self.combo_box.setGeometry(40, 5, 117, 30)
         self.combo_box.setFont(QFont('Arial', 9))  # 修改字体大小为9pt
-        self.combo_box.setStyleSheet(    '''
+        
+        # 设置下拉列表视图
+        view = self.combo_box.view()
+        view.setStyleSheet("""
+            background-color: rgba(43, 43, 43, 200);
+            color: white;
+        """)
+        
+        # 设置ComboBox样式
+        self.combo_box.setStyleSheet('''
         QComboBox {
             color: rgb(0, 191, 255);
             background-color: rgba(43, 43, 43, 200);
@@ -201,31 +210,6 @@ class TimerWindow(QMainWindow):
             height: 0;
             margin-right: 5px;
         }
-        /* 下拉列表整体样式 */
-        QComboBox QListView {
-            background-color: white;      /* 整个下拉背景设为白色 */
-            border: 1px solid #cccccc;
-            border-radius: 3px;
-            outline: none;
-            color: black;                /* 默认文字颜色设为黑色 */
-        }
-        /* 单个item默认样式 */
-        QComboBox QListView::item {
-            height: 25px;               /* 行高设置 */
-            padding: 5px;
-            background-color: white;    /* item背景白色 */
-            color: black;               /* 文字颜色黑色 */
-        }
-        /* 鼠标悬停样式 */
-        QComboBox QListView::item:hover {
-            background-color: #f0f0f0;  /* 浅灰色悬停背景 */
-            color: black;
-        }
-        /* 选中项样式 */
-        QComboBox QListView::item:selected {
-            background-color: #0096ff;  /* 选中背景蓝色 */
-            color: white;               /* 选中文字白色 */
-        }
         /* 下拉滚动条样式 */
         QComboBox QScrollBar:vertical {
             width: 8px;
@@ -235,8 +219,7 @@ class TimerWindow(QMainWindow):
             background: rgba(150, 150, 150, 150);
             border-radius: 4px;
         }''')
-        # 强制设置下拉列表的窗口标志
-        self.combo_box.view().window().setAttribute(Qt.WA_TranslucentBackground, False)
+        
         # 加载resources文件夹下的文件
         # 首先尝试在当前目录查找resources目录
         current_dir = os.getcwd()
