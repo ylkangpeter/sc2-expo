@@ -154,7 +154,7 @@ map_checks = {
         },
         'total_players': 7
     },
-    '虚空撕裂-左红点': {
+    '虚空撕裂-左': {
         'check': {
             4: {
                 "Amon's Forces", 'Amons Streitkräfte', 'Forze di Amon', 'Forças de Amon', 'Fuerzas de Amon', 'Fuerzas de Amón', 'Troupes d’Amon',

@@ -2,3 +2,4 @@ pyqt5==5.15.9
 pyqt5-qt5==5.15.2
 requests==2.31.0
 pywin32==306
+keyboard==0.13.5

@@ -4,10 +4,19 @@ import re
 import time
 import logging
 import traceback
-from PyQt5.QtWidgets import QMainWindow, QWidget, QLabel, QSystemTrayIcon, QMenu, QAction, QApplication, QComboBox, QTableWidgetItem, QPushButton, QTableWidget, QHeaderView
+import keyboard
+from PyQt5.QtWidgets import (
+    QMainWindow, QWidget, QLabel, QSystemTrayIcon, 
+    QMenu, QAction, QApplication, QComboBox, 
+    QTableWidgetItem, QPushButton, QTableWidget, 
+    QHeaderView, QVBoxLayout, QGraphicsDropShadowEffect, QHBoxLayout  # 从 QtWidgets 导入
+)
 from control_window import ControlWindow
-from PyQt5.QtGui import QFont, QIcon, QPixmap, QBrush, QColor, QCursor
-from PyQt5.QtCore import Qt, QTimer, QPoint, pyqtSignal, QRect
+from PyQt5.QtGui import (
+    QFont, QIcon, QPixmap, QBrush, 
+    QColor, QCursor
+)
+from PyQt5.QtCore import Qt, QTimer, QPoint, pyqtSignal, QRect, QSize
 import config
 from PyQt5 import QtCore
 
@@ -51,6 +60,26 @@ class TimerWindow(QMainWindow):
         self.timer.timeout.connect(self.update_game_time)
         self.timer.start(100)  # 自动开始更新，每100毫秒更新一次
         
+        # 初始化突变因子提醒标签和定时器
+        self.mutator_alert_labels = {}
+        self.mutator_alert_timers = {}
+        
+        # 为每种突变因子类型创建独立的标签和定时器
+        for mutator_type in ['deployment', 'propagator', 'voidrifts', 'killbots', 'bombbots']:
+            label = QLabel(self)
+            label.setWindowFlags(
+                Qt.FramelessWindowHint |
+                Qt.WindowStaysOnTopHint |
+                Qt.Tool
+            )
+            label.setAttribute(Qt.WA_TranslucentBackground)
+            label.hide()
+            self.mutator_alert_labels[mutator_type] = label
+            
+            timer = QTimer()
+            timer.timeout.connect(lambda t=mutator_type: self.hide_mutator_alert(t))
+            self.mutator_alert_timers[mutator_type] = timer
+        
         # 连接表格区域的双击事件
         self.table_area.mouseDoubleClickEvent = self.on_text_double_click
         
@@ -71,6 +100,9 @@ class TimerWindow(QMainWindow):
         # 连接信号到处理函数
         self.progress_signal.connect(self.handle_progress_update)
         
+        # 初始化全局快捷键
+        self.init_global_hotkeys()
+        
         # 启动游戏检查线程
         from mainfunctions import check_for_new_game
         import threading
@@ -81,9 +113,31 @@ class TimerWindow(QMainWindow):
         # 使用延迟调用，确保窗口已完全初始化
         QTimer.singleShot(100, lambda: self.on_control_state_changed(False))
 
+    def get_current_screen(self):
+        """获取当前窗口所在的显示器"""
+        window_geometry = self.geometry()
+        window_center = window_geometry.center()
+        
+        # 获取所有显示器
+        screens = QApplication.screens()
+        
+        # 遍历所有显示器，检查窗口中心点是否在显示器范围内
+        for screen in screens:
+            screen_geometry = screen.geometry()
+            if screen_geometry.contains(window_center):
+                return screen
+        
+        # 如果没有找到，返回主显示器
+        return QApplication.primaryScreen()
+    
     def update_control_window_position(self):
         # 保持控制窗口与主窗口位置同步
-        self.control_window.move(self.x(), self.y() - self.control_window.height())
+        current_screen = self.get_current_screen()
+        screen_geometry = current_screen.geometry()
+        
+        # 确保控制窗口不会超出屏幕顶部
+        new_y = max(screen_geometry.y(), self.y() - self.control_window.height())
+        self.control_window.move(self.x(), new_y)
 
     def moveEvent(self, event):
         """鼠标移动事件，用于更新控制窗口位置"""
@@ -119,8 +173,45 @@ class TimerWindow(QMainWindow):
         self.time_label.setFont(QFont('Consolas', 11))
         self.time_label.setStyleSheet('color: rgb(0, 255, 128); background-color: transparent')
         self.time_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        self.time_label.setGeometry(10, 40, 120, 20)  # 将宽度从100px增加到120px
+        self.time_label.setGeometry(10, 40, 100, 20)  # 调整宽度为100px
         self.time_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)  # 添加鼠标事件穿透
+        
+        # 创建地图版本选择按钮组
+        self.map_version_group = QWidget(self.main_container)
+        self.map_version_group.setGeometry(60, 40, 100, 20)  # 增加总宽度到100px
+        self.map_version_group.setStyleSheet('background-color: transparent')
+        version_layout = QHBoxLayout(self.map_version_group)
+        version_layout.setContentsMargins(0, 0, 0, 0)
+        version_layout.setSpacing(4)  # 增加按钮间距
+        
+        self.version_buttons = []
+        for version in ['A', 'B']:  # 默认使用A/B，后续会根据地图类型动态更改
+            btn = QPushButton(version)
+            btn.setFont(QFont('Arial', 11))  # 增加字体大小
+            btn.setFixedSize(48, 20)  # 增加按钮宽度到48px
+            btn.setCheckable(True)
+            btn.setStyleSheet('''
+                QPushButton {
+                    color: rgb(200, 200, 200);
+                    background-color: rgba(43, 43, 43, 200);
+                    border: none;
+                    border-radius: 3px;
+                    padding: 0px;
+                }
+                QPushButton:checked {
+                    color: rgb(0, 191, 255);
+                    background-color: rgba(0, 191, 255, 30);
+                }
+                QPushButton:hover {
+                    background-color: rgba(0, 191, 255, 20);
+                }
+            ''')
+            version_layout.addWidget(btn)
+            self.version_buttons.append(btn)
+            btn.clicked.connect(self.on_version_selected)
+        
+        # 默认隐藏按钮组
+        self.map_version_group.hide()
 
         # 创建表格显示区
         from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView
@@ -247,6 +338,113 @@ class TimerWindow(QMainWindow):
         
         # 调整时间标签的位置和高度
         self.time_label.setGeometry(10, 40, 100, 20)
+        
+        # 在表格区域之后添加图标区域
+        self.icon_area = QWidget(self.main_container)
+        icon_layout = QHBoxLayout()  # 不要在构造函数中传入父widget
+        self.icon_area.setLayout(icon_layout)  # 单独设置布局
+        
+        # 设置图标区域的样式，便于调试
+        self.icon_area.setStyleSheet("""
+            QWidget {
+                background-color: rgba(43, 43, 43, 96);
+                border-radius: 5px;
+            }
+        """)
+        
+        # 图标文件路径
+        icon_paths = ['deployment.png', 'propagator.png', 'voidrifts.png', 'killbots.png', 'bombbots.png']
+        self.mutator_buttons = []
+        
+        for icon_name in icon_paths:
+            btn = QPushButton()
+            icon_path = os.path.join('ico', 'mutator', icon_name)
+            
+            # 打印调试信息
+            print(f"尝试加载图标: {os.path.abspath(icon_path)}")
+            print(f"文件是否存在: {os.path.exists(icon_path)}")
+            
+            # 加载原始图标
+            original_pixmap = QPixmap(icon_path)
+            if original_pixmap.isNull():
+                print(f"警告: 无法加载图标: {icon_path}")
+                continue
+                
+            # 创建半透明版本
+            from PyQt5.QtGui import QPainter
+            transparent_pixmap = QPixmap(original_pixmap.size())
+            transparent_pixmap.fill(Qt.transparent)  # 填充透明背景
+            painter = QPainter(transparent_pixmap)
+            painter.setOpacity(config.MUTATOR_ICON_TRANSPARENCY)  # 设置70%不透明度
+            painter.drawPixmap(0, 0, original_pixmap)
+            painter.end()
+                
+            # 创建灰色版本
+            gray_image = original_pixmap.toImage()
+            for y in range(gray_image.height()):
+                for x in range(gray_image.width()):
+                    color = gray_image.pixelColor(x, y)
+                    gray = int((color.red() * 0.299) + (color.green() * 0.587) + (color.blue() * 0.114))
+                    color.setRgb(gray, gray, gray, color.alpha())
+                    gray_image.setPixelColor(x, y, color)
+            gray_pixmap = QPixmap.fromImage(gray_image)
+            
+            # 创建灰色半透明版本
+            gray_transparent_pixmap = QPixmap(gray_pixmap.size())
+            gray_transparent_pixmap.fill(Qt.transparent)  # 填充透明背景
+            painter = QPainter(gray_transparent_pixmap)
+            painter.setOpacity(config.MUTATOR_ICON_TRANSPARENCY)  # 设置70%不透明度
+            painter.drawPixmap(0, 0, gray_pixmap)
+            painter.end()
+            
+            # 设置按钮属性
+            btn.setIcon(QIcon(transparent_pixmap))  # 默认使用半透明图标
+            btn.setIconSize(QSize(26, 26))
+            btn.setFixedSize(32, 32)  # 稍微减小按钮尺寸
+            btn.setCheckable(True)
+            
+            # 修改按钮样式表，减小边框宽度和内边距
+            btn.setStyleSheet('''
+                QPushButton {
+                    border: none;
+                    padding: 0px;
+                    border-radius: 3px;
+                    background-color: transparent;
+                    min-width: 30px;
+                    min-height: 30px;
+                }
+                QPushButton:checked {
+                    background-color: rgba(255, 255, 255, 0.1);
+                    margin-top: -1px;
+                }
+            ''')
+            
+            # 存储原始和灰色图标
+            btn.original_icon = QIcon(transparent_pixmap)  # 使用半透明版本
+            btn.gray_icon = QIcon(gray_transparent_pixmap)  # 使用灰色半透明版本
+            
+            # 连接点击事件
+            btn.toggled.connect(lambda checked, b=btn: self.on_mutator_toggled(b, checked))
+            
+            icon_layout.addWidget(btn)
+            self.mutator_buttons.append(btn)
+        
+        # 调整布局，优化间距和边距
+        icon_layout.setSpacing(8)  # 增加图标间距
+        icon_layout.setContentsMargins(4, 5, 8, 5)  # 减小左侧边距
+        icon_layout.addStretch()
+        icon_layout.addStretch()
+        
+        # 调整主容器和图标区域的位置
+        table_bottom = self.table_area.geometry().bottom()
+        self.icon_area.setGeometry(0, table_bottom + 5, self.main_container.width(), 50)
+        
+        # 更新主容器高度
+        self.main_container.setFixedHeight(self.icon_area.geometry().bottom() + 5)
+        self.setFixedHeight(self.main_container.height())  # 更新窗口高度
+        
+        print(f"图标区域位置: {self.icon_area.geometry()}")
+        print(f"主容器高度: {self.main_container.height()}")
         
         # 显示窗口并强制置顶
         self.show()
@@ -443,17 +641,20 @@ class TimerWindow(QMainWindow):
         
         if is_clickable:  # 窗口可点击时
             if event.button() == Qt.LeftButton:
-                # 获取点击位置相对于窗口的坐标
                 pos = event.pos()
-                # 检查点击位置是否在地图标签区域内
-                map_area = QRect(10, 5, 30, 30)  # 只允许通过地图标签区域拖动
+                map_area = QRect(10, 5, 30, 30)
                 if map_area.contains(pos):
                     self.drag_position = event.globalPos() - self.frameGeometry().topLeft()
-                    self.is_dragging = True  # 添加拖动状态标记
+                    self.is_dragging = True
                     event.accept()
                 else:
+                    # 检查是否点击了突变按钮
+                    for btn in self.mutator_buttons:
+                        if btn.geometry().contains(event.pos() - self.icon_area.pos()) and btn.property("clickable"):
+                            event.accept()
+                            return
                     event.ignore()
-        else:  # 窗口不可点击时，保持原有的Ctrl按住才能拖动的逻辑
+        else:
             if self.ctrl_pressed and event.button() == Qt.LeftButton:
                 pos = event.pos()
                 map_area = QRect(10, 5, 30, 30)
@@ -479,11 +680,7 @@ class TimerWindow(QMainWindow):
             event.accept()
 
     def on_control_state_changed(self, unlocked):
-        """处理控制窗口状态改变事件
-        
-        Args:
-            unlocked: 是否解锁，True表示解锁状态（可点击），False表示锁定状态（不可点击）
-        """
+        """处理控制窗口状态改变事件"""
         self.logger.info(f'控制窗口状态改变: unlocked={unlocked}')
         
         # 在Windows平台上，直接使用Windows API设置窗口样式
@@ -540,6 +737,17 @@ class TimerWindow(QMainWindow):
                 self.logger.info('已设置窗口为可点击状态')
                 
             self.show()  # 重新显示窗口
+        
+        # 更新突变按钮的状态
+        for btn in self.mutator_buttons:
+            # 使用 setAttribute 来控制事件穿透
+            btn.setAttribute(Qt.WA_TransparentForMouseEvents, not unlocked)
+            
+            # 不改变图标状态，保持当前显示
+            if btn.isChecked():
+                btn.setIcon(btn.original_icon)
+            else:
+                btn.setIcon(btn.gray_icon)
     
     def closeEvent(self, event):
         """关闭事件"""
@@ -565,12 +773,79 @@ class TimerWindow(QMainWindow):
             else:
                 self.logger.warning(f'未在下拉框中找到地图: {map_name}')
 
+    def on_version_selected(self):
+        """处理地图版本按钮选择事件"""
+        sender = self.sender()
+        if not sender or not isinstance(sender, QPushButton):
+            return
+            
+        # 取消其他按钮的选中状态
+        for btn in self.version_buttons:
+            if btn != sender:
+                btn.setChecked(False)
+        
+        # 获取当前地图名称的前缀
+        current_map = self.combo_box.currentText()
+        if not current_map:
+            return
+            
+        # 根据按钮文本和地图前缀构造新的地图名称
+        prefix = current_map.rsplit('-', 1)[0]
+        new_map = f"{prefix}-{sender.text()}"
+        
+        # 在下拉框中查找并选择新地图
+        index = self.combo_box.findText(new_map)
+        if index >= 0:
+            self.combo_box.setCurrentIndex(index)
+    
     def on_map_selected(self, map_name):
         """处理地图选择变化事件"""
         # 检查是否是由用户手动选择触发的
         if not self.manual_map_selection and self.sender() == self.combo_box:
             self.manual_map_selection = True
             self.logger.info('用户手动选择了地图')
+        
+        # 处理地图版本按钮组的显示
+        if '-' in map_name:
+            prefix = map_name.rsplit('-', 1)[0]
+            suffix = map_name.rsplit('-', 1)[1]
+            
+            # 检查是否存在同前缀的其他地图
+            has_variant = False
+            variant_type = None
+            for i in range(self.combo_box.count()):
+                other_map = self.combo_box.itemText(i)
+                if other_map != map_name and other_map.startswith(prefix + '-'):
+                    has_variant = True
+                    other_suffix = other_map.rsplit('-', 1)[1]
+                    if other_suffix in ['左', '右'] and suffix in ['左', '右']:
+                        variant_type = 'LR'
+                    elif other_suffix in ['A', 'B'] and suffix in ['A', 'B']:
+                        variant_type = 'AB'
+                    break
+            
+            if has_variant and variant_type:
+                # 更新按钮文本
+                if variant_type == 'LR':
+                    self.version_buttons[0].setText('左')
+                    self.version_buttons[1].setText('右')
+                else:  # AB
+                    self.version_buttons[0].setText('A')
+                    self.version_buttons[1].setText('B')
+                
+                # 设置当前选中的按钮
+                current_suffix = suffix
+                for btn in self.version_buttons:
+                    btn.setChecked(btn.text() == current_suffix)
+                
+                # 显示按钮组
+                self.map_version_group.show()
+            else:
+                # 隐藏按钮组
+                self.map_version_group.hide()
+        else:
+            # 没有版本区分，隐藏按钮组
+            self.map_version_group.hide()
         
         try:
             # 获取地图文件的完整路径
@@ -662,21 +937,20 @@ class TimerWindow(QMainWindow):
         """初始化Toast提示组件"""
         # 创建Toast标签
         self.toast_label = QLabel(self)
-        self.toast_label.setFont(QFont('Arial', config.TOAST_FONT_SIZE))  # 设置字体大小为24
+        self.toast_label.setFont(QFont('Arial', config.TOAST_FONT_SIZE))
         self.toast_label.setStyleSheet(
             'QLabel {'
-            '   color: ' + config.TOAST_FONT_COLOR + ';'  # 使用配置文件中的颜色
+            '   color: ' + config.TOAST_FONT_COLOR + ';'
             '   padding: 10px;'
             '   background-color: transparent;'
             '   border: none;'
             '}'
         )
-        self.toast_label.setAttribute(Qt.WA_TranslucentBackground)  # 设置窗口背景透明
+        self.toast_label.setAttribute(Qt.WA_TranslucentBackground)
         self.toast_label.setAlignment(Qt.AlignCenter)
         self.toast_label.hide()
         
-        # 设置Toast标签属性
-        self.toast_label.setAttribute(Qt.WA_TransparentForMouseEvents)  # 使标签不接收鼠标事件
+        self.toast_label.setAttribute(Qt.WA_TransparentForMouseEvents)
         self.toast_label.setWindowFlags(
             Qt.FramelessWindowHint |
             Qt.WindowStaysOnTopHint |
@@ -686,32 +960,172 @@ class TimerWindow(QMainWindow):
         # 创建Toast定时器
         self.toast_timer = QTimer(self)
         self.toast_timer.timeout.connect(self.hide_toast)
-           
+
+        # 创建Mutator Alert标签
+        self.mutator_alert_label = QLabel()
+        # 设置字体大小为普通toast的2/3
+        mutator_font_size = int(config.TOAST_FONT_SIZE * 2/3) # 强制设置成小一些
+        self.mutator_alert_label.setFont(QFont('Arial', mutator_font_size))
+        self.mutator_alert_label.setStyleSheet(
+            'QLabel {'
+            '   color: ' + config.MUTATOR_DEPLOYMENT_COLOR + ';'
+            '   padding: 10px;'
+            '   background-color: transparent;'
+            '   border: none;'
+            '}'
+        )
+        self.mutator_alert_label.setAttribute(Qt.WA_TranslucentBackground)
+        self.mutator_alert_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        # 设置窗口标志
+        self.mutator_alert_label.setWindowFlags(
+            Qt.FramelessWindowHint |
+            Qt.WindowStaysOnTopHint |
+            Qt.Tool
+        )
+        self.mutator_alert_label.hide()
+        
+        # 创建Mutator Alert定时器
+        self.mutator_alert_timer = QTimer(self)
+        self.mutator_alert_timer.timeout.connect(self.hide_mutator_alert)
+
     def show_toast(self, message, duration=None):
         """显示Toast提示"""
-        # 如果没有指定duration，使用配置文件中的默认值
         if duration is None:
             duration = config.TOAST_DURATION
-        # 设置Toast文本
+            
         self.toast_label.setText(message)
-        
-        # 调整Toast大小以适应文本
         self.toast_label.adjustSize()
         
-        # 获取屏幕尺寸
-        screen = QApplication.primaryScreen().geometry()
-        
-        # 计算Toast位置（屏幕水平中心，根据配置的垂直位置）
-        x = screen.center().x() - self.toast_label.width() // 2
+        # 获取主窗体当前所在的屏幕
+        current_screen = self.get_current_screen()
+        screen_geometry = current_screen.geometry()
+        x = screen_geometry.center().x() - self.toast_label.width() // 2
         y = int(self.height() * config.TOAST_POSITION)
         self.toast_label.move(x, y)
         
-        # 显示Toast
         self.toast_label.show()
-        
-        # 设置定时器
         self.toast_timer.start(duration)
-    
+
+    def show_mutator_alert(self, message, mutator_type='deployment'):
+        """显示突变因子提醒"""
+        # 获取对应类型的标签
+        alert_label = self.mutator_alert_labels.get(mutator_type)
+        if not alert_label:
+            return
+            
+        # 清除已有布局
+        if alert_label.layout() is not None:
+            QWidget().setLayout(alert_label.layout())
+        
+        # 在Windows平台上，使用Windows API设置窗口样式
+        if sys.platform == 'win32':
+            try:
+                import ctypes
+                from ctypes import wintypes
+                
+                # 定义Windows API常量
+                GWL_EXSTYLE = -20
+                WS_EX_TRANSPARENT = 0x00000020
+                WS_EX_LAYERED = 0x00080000
+                
+                # 获取窗口句柄
+                hwnd = int(alert_label.winId())
+                
+                # 获取当前窗口样式
+                ex_style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+                
+                # 添加透明样式
+                new_ex_style = ex_style | WS_EX_TRANSPARENT | WS_EX_LAYERED
+                
+                # 设置新样式
+                result = ctypes.windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, new_ex_style)
+                if result == 0:
+                    error = ctypes.windll.kernel32.GetLastError()
+                    self.logger.error(f'SetWindowLongW失败，错误码: {error}')
+                    
+                # 强制窗口重绘
+                ctypes.windll.user32.SetWindowPos(
+                    hwnd, 0, 0, 0, 0, 0, 
+                    0x0001 | 0x0002 | 0x0004 | 0x0020  # SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_FRAMECHANGED
+                )
+                
+            except Exception as e:
+                self.logger.error(f'设置Windows平台点击穿透失败: {str(e)}')
+                self.logger.error(traceback.format_exc())
+        else:
+            # 非Windows平台使用Qt的方法
+            alert_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        
+        # 创建布局
+        layout = QVBoxLayout(alert_label)
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setAlignment(Qt.AlignLeft)
+        
+        # 创建一个QWidget作为提醒框
+        alert_widget = QWidget()
+        alert_widget.setAttribute(Qt.WA_TransparentForMouseEvents, True)  # 添加鼠标事件穿透
+        alert_widget.setAttribute(Qt.WA_NoSystemBackground)  # 禁用系统背景
+        alert_widget.setAttribute(Qt.WA_TranslucentBackground)  # 透明背景
+        alert_layout = QHBoxLayout(alert_widget)
+        alert_layout.setContentsMargins(0, 0, 0, 0)
+        alert_layout.setAlignment(Qt.AlignLeft)
+        
+        # 根据突变因子类型设置图标和文本
+        icon_name = f'{mutator_type}.png'
+        icon_path = os.path.join('ico', 'mutator', icon_name)
+        
+        # 设置显示文本
+        display_text = message
+        
+        if os.path.exists(icon_path):
+            icon_label = QLabel()
+            icon_label.setPixmap(QPixmap(icon_path).scaled(24, 24, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            icon_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)  # 添加鼠标事件穿透
+            icon_label.setAttribute(Qt.WA_NoSystemBackground)  # 禁用系统背景
+            icon_label.setAttribute(Qt.WA_TranslucentBackground)  # 透明背景
+            alert_layout.addWidget(icon_label)
+        
+        # 创建文本标签
+        text_label = QLabel(display_text)
+        text_label.setStyleSheet(f'color: {config.MUTATOR_DEPLOYMENT_COLOR}; font-size: {config.TOAST_MUTATOR_FONT_SIZE}px')
+        text_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)  # 添加鼠标事件穿透
+        text_label.setAttribute(Qt.WA_NoSystemBackground)  # 禁用系统背景
+        text_label.setAttribute(Qt.WA_TranslucentBackground)  # 透明背景
+        alert_layout.addWidget(text_label)
+        
+        # 将提醒框添加到布局中
+        alert_widget.setLayout(alert_layout)
+        layout.addWidget(alert_widget)
+        
+        # 设置固定宽度，避免位置偏移
+        alert_label.setFixedWidth(250)
+        
+        # 设置提醒窗口位置
+        current_screen = self.get_current_screen()
+        screen_geometry = current_screen.geometry()
+        # 根据突变因子类型设置不同的水平位置
+        position_map = {
+            'voidrifts': config.MUTATOR_RIFT_POS,  
+            'propagator': config.MUTATOR_PROPAGATOR_POS,  
+            'deployment': config.MUTATOR_DEPLOYMENT_POS,
+            'killbots': config.MUTATOR_KILLBOTS_POS,
+            'bombbots': config.MUTATOR_BOMBBOTS_POS
+        }
+        # 计算相对于屏幕的绝对位置
+        x = screen_geometry.x() + int(screen_geometry.width() * position_map.get(mutator_type, 0.5)) - 125  # 使用固定宽度的一半
+        y = int(self.height() * config.MUTATOR_TOAST_POSITION)  # 使用专门的突变因子提示位置配置
+        alert_label.move(x, y)
+        
+        # 显示提醒标签并启动定时器
+        alert_label.show()
+        self.mutator_alert_timers[mutator_type].start(config.TOAST_DURATION)
+
+    def hide_mutator_alert(self, mutator_type):
+        """隐藏突变因子提醒"""
+        if mutator_type in self.mutator_alert_labels:
+            self.mutator_alert_labels[mutator_type].hide()
+            self.mutator_alert_timers[mutator_type].stop()
+
     def hide_toast(self):
         """隐藏Toast提示"""
         self.toast_label.hide()
@@ -733,19 +1147,54 @@ class TimerWindow(QMainWindow):
                     self.show_toast(selected_text, config.TOAST_DURATION)  # 设置5000毫秒（5秒）后自动消失
             event.accept()
             
-    def keyPressEvent(self, event):
-        """键盘按下事件处理"""
-        if event.key() == Qt.Key_Control:
-            self.ctrl_pressed = True
-            self.setAttribute(Qt.WA_TransparentForMouseEvents, False)  # 禁用鼠标事件穿透
-            event.accept()
-
-    def keyReleaseEvent(self, event):
-        """键盘释放事件处理"""
-        if event.key() == Qt.Key_Control:
-            self.ctrl_pressed = False
-            self.setAttribute(Qt.WA_TransparentForMouseEvents, True)  # 启用鼠标事件穿透
-            event.accept()
+    def init_global_hotkeys(self):
+        """初始化全局快捷键"""
+        try:
+            # 解析快捷键配置
+            shortcut = config.MAP_SHORTCUT.replace(' ', '').lower()
+            
+            # 注册全局快捷键
+            keyboard.add_hotkey(shortcut, self.handle_map_switch_hotkey)
+            self.logger.info(f'成功注册全局快捷键: {config.MAP_SHORTCUT}')
+            
+        except Exception as e:
+            self.logger.error(f'注册全局快捷键失败: {str(e)}')
+            self.logger.error(traceback.format_exc())
+    
+    def handle_map_switch_hotkey(self):
+        """处理地图切换快捷键"""
+        self.logger.info(f'检测到地图切换快捷键组合: {config.MAP_SHORTCUT}')
+        # 检查当前地图是否为A/B版本
+        if self.map_version_group.isVisible():
+            self.logger.info('当前地图支持A/B版本切换')
+            # 获取当前选中的按钮
+            current_btn = None
+            for btn in self.version_buttons:
+                if btn.isChecked():
+                    current_btn = btn
+                    break
+            
+            # 切换到另一个版本
+            if current_btn:
+                current_idx = self.version_buttons.index(current_btn)
+                next_idx = (current_idx + 1) % len(self.version_buttons)
+                self.logger.info(f'从版本 {current_btn.text()} 切换到版本 {self.version_buttons[next_idx].text()}')
+                self.version_buttons[next_idx].click()
+        else:
+            self.logger.info('当前地图不支持A/B版本切换')
+    
+    def closeEvent(self, event):
+        """窗口关闭事件处理"""
+        try:
+            # 清理全局快捷键
+            keyboard.unhook_all()
+            self.logger.info('已清理所有全局快捷键')
+        except Exception as e:
+            self.logger.error(f'清理全局快捷键失败: {str(e)}')
+            self.logger.error(traceback.format_exc())
+        
+        # 调用父类的closeEvent
+        super().closeEvent(event)
 
     def showEvent(self, event):
         """窗口显示事件，确保窗口始终保持在最上层"""
@@ -756,6 +1205,163 @@ class TimerWindow(QMainWindow):
             hwnd = int(self.winId())
             win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, 0, 0, 0, 0, 
                                 win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOACTIVATE)
+
+    def on_mutator_toggled(self, button, checked):
+        """处理突变按钮状态改变"""
+        if checked:
+            # 切换到原始图标并添加阴影效果
+            button.setIcon(button.original_icon)
+            shadow = QGraphicsDropShadowEffect()
+            shadow.setBlurRadius(10)
+            shadow.setXOffset(3)
+            shadow.setYOffset(3)
+            shadow.setColor(QColor(0, 0, 0, 160))
+            button.setGraphicsEffect(shadow)
+            
+            # 根据按钮索引加载对应的突变因子配置
+            if button in self.mutator_buttons:
+                button_index = self.mutator_buttons.index(button)
+                mutator_types = ['deployment', 'propagator', 'voidrifts', 'killbots', 'bombbots']
+                if button_index < len(mutator_types):
+                    mutator_type = mutator_types[button_index]
+                    time_points = self.load_mutator_config(mutator_type)
+                    setattr(self, f'{mutator_type}_time_points', time_points)
+                    
+                    # 启动检查定时器（如果还没有启动）
+                    if not hasattr(self, 'mutator_timer'):
+                        self.mutator_timer = QTimer()
+                        self.mutator_timer.timeout.connect(self.check_mutator_alerts)
+                        self.mutator_timer.start(1000)  # 每秒检查一次
+        else:
+            # 切换回灰色图标并移除阴影效果
+            button.setIcon(button.gray_icon)
+            button.setGraphicsEffect(None)
+            
+            # 清除对应突变因子的时间点和提醒记录
+            if button in self.mutator_buttons:
+                button_index = self.mutator_buttons.index(button)
+                mutator_types = ['deployment', 'propagator', 'voidrifts']
+                
+                if button_index < len(mutator_types):
+                    mutator_type = mutator_types[button_index]
+                    # 清除时间点
+                    setattr(self, f'{mutator_type}_time_points', [])
+                    # 清除已提醒记录
+                    if hasattr(self, f'alerted_{mutator_type}_time_points'):
+                        delattr(self, f'alerted_{mutator_type}_time_points')
+                
+                # # 如果所有按钮都未选中，停止定时器
+                # if not any(btn.isChecked() for btn in self.mutator_buttons):
+                #     if hasattr(self, 'mutator_timer'):
+                #         self.mutator_timer.stop()
+
+    def load_mutator_config(self, mutator_name):
+        """加载突变因子配置文件"""
+        try:
+            # 获取配置文件路径
+            config_path = os.path.join('resources', 'mutator', f'{mutator_name}.txt')
+            self.logger.info(f'加载突变因子配置: {config_path}')
+            
+            if not os.path.exists(config_path):
+                self.logger.error(f'突变因子配置文件不存在: {config_path}')
+                return []
+                
+            # 读取配置文件
+            with open(config_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+            
+            # 解析时间点
+            time_points = []
+            for line in lines:
+                if line.strip() and not line.isspace():
+                    parts = line.strip().split('\t')
+                    if len(parts) >= 1:
+                        time_str = parts[0].strip()
+                        # 将时间字符串转换为秒数
+                        time_parts = time_str.split(':')
+                        if len(time_parts) == 2:  # MM:SS
+                            seconds = int(time_parts[0]) * 60 + int(time_parts[1])
+                            time_points.append(seconds)
+                            self.logger.debug(f"添加时间点: {time_str} -> {seconds}秒")
+            
+            self.logger.info(f'加载了 {len(time_points)} 个时间点: {time_points}')
+            return sorted(time_points)  # 确保时间点是有序的
+            
+        except Exception as e:
+            self.logger.error(f'加载突变因子配置失败: {str(e)}')
+            self.logger.error(traceback.format_exc())
+            return []
+
+    def check_mutator_alerts(self):
+        """检查突变因子提醒"""
+        try:
+            # 从全局变量获取当前游戏时间
+            from mainfunctions import most_recent_playerdata
+            if most_recent_playerdata and isinstance(most_recent_playerdata, dict):
+                current_time = most_recent_playerdata.get('time', 0)
+                if not current_time:
+                    return
+                    
+                current_seconds = int(float(current_time))
+                self.logger.debug(f"当前游戏时间: {current_seconds}秒")
+                
+                # 检查每个突变因子的时间点
+                mutator_types = ['deployment', 'propagator', 'voidrifts', 'killbots', 'bombbots']
+                for i, mutator_type in enumerate(mutator_types):
+                    # 检查对应按钮是否被选中
+                    if not self.mutator_buttons[i].isChecked():
+                        continue
+                        
+                    time_points = []
+                    time_points_attr = f'{mutator_type}_time_points'
+                    if hasattr(self, time_points_attr):
+                        time_points = getattr(self, time_points_attr)
+                    
+                    # 确保已提醒时间点集合存在
+                    alerted_points_attr = f'alerted_{mutator_type}_time_points'
+                    if not hasattr(self, alerted_points_attr):
+                        setattr(self, alerted_points_attr, set())
+                    
+                    alerted_points = getattr(self, alerted_points_attr)
+                    for time_point in time_points:
+                        # 如果这个时间点已经提醒过，跳过
+                        if time_point in alerted_points:
+                            continue
+                            
+                        # 计算距离下一个时间点的秒数
+                        time_diff = time_point - current_seconds
+                        self.logger.debug(f"检查{mutator_type}时间点: {time_point}, 差值: {time_diff}")
+                        
+                        # 如果在提醒时间范围内且时间差大于0（未来时间点）
+                        if time_diff > 0 and time_diff <= config.MUTATION_FACTOR_ALERT_SECONDS:
+                            from debug_utils import format_time_to_mmss
+                            # 读取配置文件中的第二列文本
+                            config_path = os.path.join('resources', 'mutator', f'{mutator_type}.txt')
+                            with open(config_path, 'r', encoding='utf-8') as f:
+                                lines = f.readlines()
+                            # 找到对应时间点的第二列文本
+                            second_column_text = ''
+                            for line in lines:
+                                if line.strip() and not line.isspace():
+                                    parts = line.strip().split('\t')
+                                    if len(parts) >= 2:
+                                        time_str = parts[0].strip()
+                                        time_parts = time_str.split(':')
+                                        if len(time_parts) == 2:
+                                            line_seconds = int(time_parts[0]) * 60 + int(time_parts[1])
+                                            if line_seconds == time_point:
+                                                second_column_text = parts[1].strip()
+                                                break
+                            
+                            self.logger.info(f"触发{mutator_type}突变因子提醒: {format_time_to_mmss(time_point)}处的事件")
+                            self.show_mutator_alert(f"{time_diff} 秒后 {second_column_text}", mutator_type)
+                            
+                            # 记录已提醒的时间点
+                            alerted_points.add(time_point)
+                        
+        except Exception as e:
+            self.logger.error(f'检查突变因子提醒失败: {str(e)}')
+            self.logger.error(traceback.format_exc())
 
 def main():
     app = QApplication(sys.argv)
