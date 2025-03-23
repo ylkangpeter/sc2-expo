@@ -1,5 +1,5 @@
 # 调试模式配置
-debug_mode = True  # 设置为True启用调试模式
+debug_mode = False  # 设置为True启用调试模式
 debug_time_factor = 5.0  # 调试模式下的时间流速因子
 
 # 日志级别配置
