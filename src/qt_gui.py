@@ -32,7 +32,7 @@ class TimerWindow(QMainWindow):
         os.makedirs(log_dir, exist_ok=True)
         log_file = os.path.join(log_dir, 'sc2_timer.log')
         logging.basicConfig(
-            level=logging.INFO,
+            level=getattr(logging, config.LOG_LEVEL),
             format='%(asctime)s - %(levelname)s - %(message)s',
             handlers=[
                 logging.FileHandler(log_file, encoding='utf-8', mode='a'),
