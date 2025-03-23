@@ -33,9 +33,15 @@ pip install -r requirements.txt
 - `TOAST_DURATION`：Toast提示窗口显示时间（毫秒）
 - `TOAST_OPACITY`：Toast窗口背景透明度（0-255）
 - `TOAST_POSITION`：Toast窗口垂直位置（窗口高度的比例，0-1）
-
+  
 ### 时间提醒设置
 - `TIME_ALERT_SECONDS`：提前提醒时间（秒）
+
+### 其他设置
+其他更多设置，详见config.py文件
+
+### AB图添加快捷键功能
+神庙、虚空撕裂等图，会显示AB图的选项，可以点选，或者通过快捷键 ctrl + shift + [ 来改变状态，快捷键修改详见config.py
 
 ## 界面预览
 ![程序界面预览](img/sample.png)
