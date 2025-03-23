@@ -1,15 +1,37 @@
 # 调试模式配置
-DEBUG_MODE = False
+debug_mode = True  # 设置为True启用调试模式
+debug_time_factor = 5.0  # 调试模式下的时间流速因子
 
 # 日志级别配置
 LOG_LEVEL = 'INFO'
+
+# 快捷键
+MAP_SHORTCUT = 'ctrl + shift + ['
 
 # Toast提示配置
 TOAST_DURATION = 10000  # 显示时间（毫秒）
 TOAST_OPACITY = 0    # 背景透明度（0-255）
 TOAST_POSITION = 0.9  # 垂直位置（窗口高度的比例）
-TOAST_FONT_SIZE = 48
+TOAST_FONT_SIZE = 45
 TOAST_FONT_COLOR = 'rgb(0, 191, 255)'
 
 # 时间提醒配置
 TIME_ALERT_SECONDS = 60  # 提前提醒时间（秒）
+
+# 突变因子提醒配置
+MUTATION_FACTOR_ALERT_SECONDS = 30  # 突变因子提前提醒时间（秒）
+MUTATION_FACTOR_ALERT_DURATION_SECONDS = 5  # 突变因子提醒持续事件（秒）
+MUTATION_ALERT_TOAST_POSITION = 0.7  # 垂直位置（窗口高度的比例）
+MUTATOR_DEPLOYMENT_COLOR = 'rgb(0, 255, 128)'
+MUTATOR_RIFTS_COLOR = 'rgb(0, 255, 128)'
+MUTATOR_PROPAGATOR_COLOR = 'rgb(0, 255, 128)'
+
+# 突变因子提示位置配置
+MUTATOR_TOAST_POSITION = 0.7  # 垂直位置（窗口高度的比例）
+MUTATOR_ICON_TRANSPARENCY = 0.7
+TOAST_MUTATOR_FONT_SIZE = 30
+MUTATOR_DEPLOYMENT_POS=0.2
+MUTATOR_PROPAGATOR_POS=0.35
+MUTATOR_RIFT_POS=0.5
+MUTATOR_KILLBOTS_POS=0.65
+MUTATOR_BOMBBOTS_POS=0.8

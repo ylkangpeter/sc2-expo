@@ -6,6 +6,8 @@ import requests
 from PyQt5 import QtCore
 from map_processor import MapProcessor
 from IdentifyMap import identify_map
+import config
+from debug_utils import get_mock_data, reset_mock
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +24,12 @@ session = requests.Session()
 def check_for_new_game(progress_callback: QtCore.pyqtSignal) -> None:
     global most_recent_playerdata, current_game_id
     
-    """检查新游戏并发送玩家数据信号到overlay"""
     logger.info('check_for_new_game函数启动')
+    
+    # 如果是调试模式，重置模拟时间
+    if config.debug_mode:
+        reset_mock()
+    
     # 等待游戏初始化完成
     time.sleep(4)
     logger.info('游戏初始化等待完成')
@@ -39,8 +45,12 @@ def check_for_new_game(progress_callback: QtCore.pyqtSignal) -> None:
             break
 
         try:
-            # 从游戏请求玩家数据
-            resp = session.get('http://localhost:6119/game', timeout=6).json()
+            # 根据调试模式选择数据来源
+            if config.debug_mode:
+                resp = get_mock_data()
+            else:
+                resp = session.get('http://localhost:6119/game', timeout=6).json()
+            
             players = resp.get('players', list())
             
             # 获取当前游戏时间并更新，无论是否为新游戏
