@@ -39,6 +39,7 @@ pip install -r requirements.txt
 
 ## 界面预览
 ![程序界面预览](img/sample.png)
+![程序界面预览](img/sample1.png)
 
 ## 注意事项
 1. 确保游戏窗口可见，不要最小化
