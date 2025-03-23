@@ -3,7 +3,7 @@ debug_mode = False  # 设置为True启用调试模式
 debug_time_factor = 5.0  # 调试模式下的时间流速因子
 
 # 日志级别配置
-LOG_LEVEL = 'INFO'
+LOG_LEVEL = 'WARNING'
 
 # 快捷键
 MAP_SHORTCUT = 'ctrl + shift + ['
