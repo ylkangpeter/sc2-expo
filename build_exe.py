@@ -58,8 +58,15 @@ def create_zip():
         if os.path.exists(config_path):
             print(f"添加文件: config.py")
             zipf.write(config_path, 'config.py')
+        
+        # 添加说明.txt
+        readme_path = os.path.join('dist', '说明.txt')
+        if os.path.exists(readme_path):
+            print(f"添加文件: 说明.txt")
+            zipf.write(readme_path, '说明.txt')
     
     print(f"\n压缩包创建完成: {zip_file}")
+
 
 def build_exe():
     """使用PyInstaller打包应用"""
@@ -110,6 +117,10 @@ def build_exe():
     # 复制config.py到dist目录
     print("复制config.py到dist文件夹...")
     shutil.copy2(os.path.join('src', 'config.py'), os.path.join('dist', 'config.py'))
+    
+    # 复制说明.txt到dist目录
+    print("复制说明.txt到dist文件夹...")
+    shutil.copy2('说明.txt', os.path.join('dist', '说明.txt'))
     
     print("开始构建可执行文件...")
     print(f"执行命令: {build_cmd}")
