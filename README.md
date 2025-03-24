@@ -1,7 +1,7 @@
 # SC2 Expo
 
 ## 项目简介
-SC2 Expo 是一个星际争霸2游戏辅助工具，用于识别游戏地图并提供定时提醒功能。
+SC2 Expo 是一个星际争霸2游戏辅助工具，用于识别游戏地图并提供定时提醒功能。 地图识别部分代码源自 https://github.com/FluffyMaguro/SC2_Coop_Overlay
 
 ## 环境要求
 - Python 3.7 或更高版本
