@@ -12,6 +12,7 @@ from PyQt5.QtWidgets import (
     QHeaderView, QVBoxLayout, QGraphicsDropShadowEffect, QHBoxLayout  # 从 QtWidgets 导入
 )
 from control_window import ControlWindow
+from commander_selector import CommanderSelector
 from PyQt5.QtGui import (
     QFont, QIcon, QPixmap, QBrush, 
     QColor, QCursor
@@ -439,12 +440,36 @@ class TimerWindow(QMainWindow):
         table_bottom = self.table_area.geometry().bottom()
         self.icon_area.setGeometry(0, table_bottom + 5, self.main_container.width(), 50)
         
+        # 添加替换指挥官按钮
+        self.replace_commander_btn = QPushButton('替换指挥官', self.main_container)
+        self.replace_commander_btn.clicked.connect(self.on_replace_commander)
+        self.replace_commander_btn.setStyleSheet('''
+            QPushButton {
+                color: black;
+                background-color: rgba(236, 236, 236, 200);
+                border: none;
+                border-radius: 3px;
+                padding: 5px;
+                font-size: 12pt;
+            }
+            QPushButton:hover {
+                background-color: rgba(43, 43, 43, 200);
+            }
+        ''')
+        self.replace_commander_btn.setFixedSize(150, 30)
+        commander_btn_x = (self.main_container.width() - self.replace_commander_btn.width()) // 2
+        self.replace_commander_btn.move(commander_btn_x, self.icon_area.geometry().bottom() + 5)
+        self.replace_commander_btn.hide()  # 初始状态为隐藏
+        
         # 更新主容器高度
-        self.main_container.setFixedHeight(self.icon_area.geometry().bottom() + 5)
+        self.main_container.setFixedHeight(self.replace_commander_btn.geometry().bottom() + 5)
         self.setFixedHeight(self.main_container.height())  # 更新窗口高度
         
         print(f"图标区域位置: {self.icon_area.geometry()}")
         print(f"主容器高度: {self.main_container.height()}")
+        
+        # 创建指挥官选择器实例，传入当前窗口的几何信息
+        self.commander_selector = CommanderSelector(self)
         
         # 显示窗口并强制置顶
         self.show()
@@ -683,6 +708,17 @@ class TimerWindow(QMainWindow):
         """处理控制窗口状态改变事件"""
         self.logger.info(f'控制窗口状态改变: unlocked={unlocked}')
         
+        # 根据解锁状态显示或隐藏替换指挥官按钮
+        if hasattr(self, 'replace_commander_btn'):
+            if unlocked:
+                self.replace_commander_btn.show()
+            else:
+                self.replace_commander_btn.hide()
+                
+        # 同步更新指挥官选择器窗口的显示状态
+        if hasattr(self, 'commander_selector'):
+            self.commander_selector.set_visibility(unlocked)
+        
         # 在Windows平台上，直接使用Windows API设置窗口样式
         if sys.platform == 'win32':
             try:
@@ -748,6 +784,12 @@ class TimerWindow(QMainWindow):
                 btn.setIcon(btn.original_icon)
             else:
                 btn.setIcon(btn.gray_icon)
+                
+    def on_replace_commander(self):
+        """处理替换指挥官按钮的点击事件"""
+        if hasattr(self, 'commander_selector'):
+            # 切换指挥官选择器窗口的打开/关闭状态
+            self.commander_selector.toggle_window()
     
     def closeEvent(self, event):
         """关闭事件"""
@@ -1151,15 +1193,26 @@ class TimerWindow(QMainWindow):
         """初始化全局快捷键"""
         try:
             # 解析快捷键配置
-            shortcut = config.MAP_SHORTCUT.replace(' ', '').lower()
+            map_shortcut = config.MAP_SHORTCUT.replace(' ', '').lower()
+            lock_shortcut = config.LOCK_SHORTCUT.replace(' ', '').lower()
             
             # 注册全局快捷键
-            keyboard.add_hotkey(shortcut, self.handle_map_switch_hotkey)
-            self.logger.info(f'成功注册全局快捷键: {config.MAP_SHORTCUT}')
+            keyboard.add_hotkey(map_shortcut, self.handle_map_switch_hotkey)
+            keyboard.add_hotkey(lock_shortcut, self.handle_lock_shortcut)
+            self.logger.info(f'成功注册全局快捷键: {config.MAP_SHORTCUT}, {config.LOCK_SHORTCUT}')
             
         except Exception as e:
             self.logger.error(f'注册全局快捷键失败: {str(e)}')
             self.logger.error(traceback.format_exc())
+    
+    def handle_lock_shortcut(self):
+        """处理锁定快捷键"""
+        self.logger.info(f'检测到锁定快捷键组合: {config.LOCK_SHORTCUT}')
+        # 切换控制窗口的锁定状态
+        self.control_window.is_locked = not self.control_window.is_locked
+        self.control_window.update_icon()
+        # 发送状态改变信号
+        self.control_window.state_changed.emit(not self.control_window.is_locked)
     
     def handle_map_switch_hotkey(self):
         """处理地图切换快捷键"""
