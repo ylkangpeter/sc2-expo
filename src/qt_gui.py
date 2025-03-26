@@ -1035,8 +1035,14 @@ class TimerWindow(QMainWindow):
         self.mutator_alert_timer = QTimer(self)
         self.mutator_alert_timer.timeout.connect(self.hide_mutator_alert)
 
-    def show_toast(self, message, duration=None):
+    def show_toast(self, message, duration=None, force_show=False):
         """显示Toast提示"""
+        # 检查游戏状态，非游戏中状态不显示提示
+        from mainfunctions import get_game_screen
+        if not force_show and get_game_screen() != 'in_game':
+            self.logger.info('非游戏中状态，不显示Toast提示')
+            return
+            
         if duration is None:
             duration = config.TOAST_DURATION
             
@@ -1055,6 +1061,12 @@ class TimerWindow(QMainWindow):
 
     def show_mutator_alert(self, message, mutator_type='deployment'):
         """显示突变因子提醒"""
+        # 检查游戏状态，非游戏中状态不显示提示
+        from mainfunctions import get_game_screen
+        if get_game_screen() != 'in_game':
+            self.logger.info('非游戏中状态，不显示alert Toast提示')
+            return
+            
         # 获取对应类型的标签
         alert_label = self.mutator_alert_labels.get(mutator_type)
         if not alert_label:
@@ -1191,7 +1203,7 @@ class TimerWindow(QMainWindow):
                     time_text = time_item.text().strip()
                     event_text = event_item.text().strip()
                     selected_text = f"{time_text} {event_text}" if time_text else event_text
-                    self.show_toast(selected_text, config.TOAST_DURATION)  # 设置5000毫秒（5秒）后自动消失
+                    self.show_toast(selected_text, config.TOAST_DURATION, force_show=True)  # 设置5000毫秒（5秒）后自动消失
             event.accept()
             
     def init_global_hotkeys(self):

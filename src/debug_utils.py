@@ -107,3 +107,28 @@ def resume_game():
     """恢复游戏时间"""
     if _game_time_mock is not None:
         _game_time_mock.resume()
+
+class GameScreenMock:
+    def __init__(self):
+        pass
+    
+    def get_screen_data(self) -> Dict:
+        """模拟游戏UI状态API返回的数据结构"""
+        return {
+            'activeScreens': []  # 空数组表示在游戏中
+        }
+
+# 全局实例
+_game_screen_mock: Optional[GameScreenMock] = None
+
+def init_screen_mock():
+    """初始化游戏界面模拟器"""
+    global _game_screen_mock
+    _game_screen_mock = GameScreenMock()
+
+def get_mock_screen_data() -> Dict:
+    """获取模拟的游戏界面数据"""
+    global _game_screen_mock
+    if _game_screen_mock is None:
+        init_screen_mock()
+    return _game_screen_mock.get_screen_data()

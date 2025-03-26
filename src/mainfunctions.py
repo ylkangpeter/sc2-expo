@@ -7,7 +7,7 @@ from PyQt5 import QtCore
 from map_processor import MapProcessor
 from IdentifyMap import identify_map
 import config
-from debug_utils import get_mock_data, reset_mock
+from debug_utils import get_mock_data, reset_mock, get_mock_screen_data
 
 logger = logging.getLogger(__name__)
 
@@ -150,3 +150,42 @@ def get_player_data(player_names):
     """获取玩家数据"""
     # TODO: 实现获取玩家数据的逻辑
     return {}
+
+def get_game_screen() -> str:
+    """获取当前游戏界面状态
+    
+    Returns:
+        str: 返回当前界面状态
+            - 'matchmaking': 匹配界面
+            - 'in_game': 游戏中
+            - 'unknown': 未知状态或请求失败
+    """
+    try:
+        # 根据调试模式选择数据来源
+        if config.debug_mode:
+            resp = get_mock_screen_data()
+        else:
+            # 请求游戏UI状态API
+            resp = session.get('http://localhost:6119/ui', timeout=6).json()
+        
+        # 获取activeScreens数组
+        active_screens = resp.get('activeScreens', [])
+        
+        # 判断界面状态：数组不为空表示在匹配界面，为空表示在游戏中
+        if active_screens:
+            return 'matchmaking'
+        else:
+            return 'in_game'
+            
+    except requests.exceptions.ConnectionError:
+        logger.debug('SC2请求失败。游戏未运行。')
+        return 'unknown'
+    except json.decoder.JSONDecodeError:
+        logger.info('SC2请求json解码失败（SC2正在启动或关闭）')
+        return 'unknown'
+    except requests.exceptions.ReadTimeout:
+        logger.info('SC2请求超时')
+        return 'unknown'
+    except Exception:
+        logger.error(f'获取游戏界面状态出错: {traceback.format_exc()}')
+        return 'unknown'
