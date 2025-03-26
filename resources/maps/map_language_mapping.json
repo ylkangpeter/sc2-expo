@@ -1,0 +1,72 @@
+{
+  "maps": {
+    "黑暗杀星": {
+      "zh": "黑暗杀星",
+      "en": "Scythe of Amon"
+    },
+    "虚空降临": {
+      "zh": "虚空降临",
+      "en": "Void Launch"
+    },
+    "天锁": {
+      "zh": "天锁",
+      "en": "Lock & Load"
+    },
+    "聚铁成兵": {
+      "zh": "聚铁成兵",
+      "en": "Mist Opportunities"
+    },
+    "亡者之夜": {
+      "zh": "亡者之夜",
+      "en": "Dead of Night"
+    },
+    "克哈裂痕": {
+      "zh": "克哈裂痕",
+      "en": "Rifts to Korhal"
+    },
+    "净网行动": {
+      "zh": "净网行动",
+      "en": "Malwarfare"
+    },
+    "升格之恋": {
+      "zh": "升格之恋",
+      "en": "Chain of Ascension"
+    },
+    "往日神庙-A": {
+      "zh": "往日神庙-A",
+      "en": "Temple of the Past-A"
+    },
+    "往日神庙-B": {
+      "zh": "往日神庙-B",
+      "en": "Temple of the Past-B"
+    },
+    "机会渺茫": {
+      "zh": "机会渺茫",
+      "en": "Miner Evacuation"
+    },
+    "死亡摇篮": {
+      "zh": "死亡摇篮",
+      "en": "Cradle of Death"
+    },
+    "湮灭快车": {
+      "zh": "湮灭快车",
+      "en": "Oblivion Express"
+    },
+    "熔火危机": {
+      "zh": "熔火危机",
+      "en": "Vermillion Problem"
+    },
+    "营救矿工": {
+      "zh": "营救矿工",
+      "en": "Part and Parcel"
+    },
+    "虚空撕裂-右": {
+      "zh": "虚空撕裂-右",
+      "en": "Void Thrashing-Right"
+    },
+    "虚空撕裂-左": {
+      "zh": "虚空撕裂-左",
+      "en": "Void Thrashing-Left"
+    }
+  }
+}

@@ -12,20 +12,10 @@ class MapProcessor:
     def load_map_templates(self):
         """加载地图模板数据"""
         try:
-            # 首先尝试在当前目录查找resources目录
-            current_dir = os.getcwd()
-            resources_dir = os.path.join(current_dir, 'resources')
-            
-            # 如果当前目录没有resources目录，则尝试在程序目录查找
-            if not os.path.exists(resources_dir):
-                logger.info(f'当前目录下未找到资源目录，尝试在程序目录查找')
-                resources_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources')
-                
-            if not os.path.exists(resources_dir):
-                logger.error(f'资源目录不存在: {resources_dir}')
+            from fileutil import get_resources_dir
+            resources_dir = get_resources_dir('resources', 'maps', 'zh')
+            if not resources_dir:
                 return
-                
-            logger.info(f'使用资源目录: {resources_dir}')
 
             # 遍历resources目录下的所有地图模板文件
             for map_name in os.listdir(resources_dir):

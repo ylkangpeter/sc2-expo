@@ -1,4 +1,5 @@
 from typing import List, Dict, Any, Optional
+import logging
 
 map_checks = {
     '升格之恋': {
@@ -171,6 +172,8 @@ map_checks = {
 }
 
 
+logger = logging.getLogger(__name__)
+
 def identify_map(player_data: List[Dict[str, Any]]) -> Optional[str]:
     """ Identify a map based on the list of players """
     length = len(player_data)
@@ -179,14 +182,21 @@ def identify_map(player_data: List[Dict[str, Any]]) -> Optional[str]:
 
         # First check if the length of players is correct
         if length != map_checks[m]['total_players']:
+            logger.info(f'地图{m}玩家数量不匹配: 当前={length}, 期望={map_checks[m]["total_players"]}')
             continue
         
+        logger.info(f'检查地图{m}的玩家名称匹配情况')
         # Then go over two players, and check if both their names are in correct set of localized strings
         for p in map_checks[m]['check']:
-            if not player_data[p]['name'] in map_checks[m]['check'][p]:
+            player_name = player_data[p]['name']
+            if not player_name in map_checks[m]['check'][p]:
+                logger.info(f'地图{m}的第{p}号位玩家名称不匹配: {player_name} 不在预期列表中')
                 found = False
                 break
+            logger.info(f'地图{m}的第{p}号位玩家名称匹配成功: {player_name}')
         if found:
+            logger.info(f'地图识别成功: {m}')
             return m
 
+    logger.warning('未能识别地图')
     return None

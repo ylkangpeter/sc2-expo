@@ -58,8 +58,16 @@ class GameTimeMock:
         return {
             'displayTime': self.get_current_time(),
             'players': [
-                {'id': 1, 'type': 'computer', 'name': 'AI Player'}
-            ]  # 添加一个AI玩家以通过游戏检查
+                {'id': 1, 'type': 'computer', 'name': 'Player 1'},
+                {'id': 2, 'type': 'computer', 'name': 'Player 2'},
+                {'id': 3, 'type': 'computer', 'name': 'Player 3'},
+                {'id': 4, 'type': 'computer', 'name': 'Player 4'},
+                {'id': 5, 'type': 'computer', 'name': 'Player 5'},
+                {'id': 6, 'type': 'computer', 'name': 'Temple'},  # 第6个玩家设置为神庙
+                {'id': 7, 'type': 'computer', 'name': 'Temple'},
+                {'id': 8, 'type': 'computer', 'name': 'Rocks'},   # 第8个玩家设置为岩石
+                {'id': 9, 'type': 'computer', 'name': 'Rocks'}
+            ]
         }
 
 # 全局实例
