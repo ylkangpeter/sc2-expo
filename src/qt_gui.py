@@ -21,17 +21,24 @@ from PyQt5.QtCore import Qt, QTimer, QPoint, pyqtSignal, QRect, QSize
 import config
 from PyQt5 import QtCore
 
+from fileutil import get_resources_dir, list_files
+
 class TimerWindow(QMainWindow):
     # 创建信号用于地图更新
     progress_signal = QtCore.pyqtSignal(list)
-    
+
     def __init__(self):
         super().__init__()
-        
+        if getattr(sys, 'frozen', False):  # 是否为打包的 exe
+            base_dir = os.path.dirname(sys.executable)  # exe 所在目录
+        else:
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # 源码所在目录
+
+        log_dir = os.path.join(base_dir, 'log')
+        os.makedirs(log_dir, exist_ok=True)  # 确保目录存在
+
         # 初始化日志记录器
-        log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'log')
-        os.makedirs(log_dir, exist_ok=True)
-        log_file = os.path.join(log_dir, 'sc2_timer.log')
+        log_file =  os.path.join(log_dir, 'sc2_timer.log')
         logging.basicConfig(
             level=getattr(logging, config.LOG_LEVEL),
             format='%(asctime)s - %(levelname)s - %(message)s',
@@ -260,7 +267,7 @@ class TimerWindow(QMainWindow):
         self.main_container.setGeometry(0, 0, 167, 335)  # 调整容器高度
         
         # 创建地图标签
-        self.map_label = QLabel('地图', self.main_container)
+        self.map_label = QLabel(self.get_text('map_label'), self.main_container)
         self.map_label.setFont(QFont('Arial', 9))  # 修改字体大小为9pt
         self.map_label.setStyleSheet('color: white; background-color: transparent')
         self.map_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
@@ -313,21 +320,11 @@ class TimerWindow(QMainWindow):
         }''')
         
         # 加载resources文件夹下的文件
-        # 首先尝试在当前目录查找resources目录
-        current_dir = os.getcwd()
-        resources_dir = os.path.join(current_dir, 'resources')
-        
-        # 如果当前目录没有resources目录，则尝试在程序目录查找
-        if not os.path.exists(resources_dir):
-            self.logger.info(f'当前目录下未找到资源目录，尝试在程序目录查找')
-            resources_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources')
-            
-        if not os.path.exists(resources_dir):
-            self.logger.error(f'资源目录不存在: {resources_dir}')
+        resources_dir = get_resources_dir('resources', 'maps', config.current_language)
+        if not resources_dir:
             files = []
         else:
-            self.logger.info(f'使用资源目录: {resources_dir}')
-            files = [f for f in os.listdir(resources_dir) if os.path.isfile(os.path.join(resources_dir, f))]
+            files = list_files(resources_dir)
         self.combo_box.addItems(files)
         
         # 连接下拉框选择变化事件
@@ -441,7 +438,7 @@ class TimerWindow(QMainWindow):
         self.icon_area.setGeometry(0, table_bottom + 5, self.main_container.width(), 50)
         
         # 添加替换指挥官按钮
-        self.replace_commander_btn = QPushButton('替换指挥官', self.main_container)
+        self.replace_commander_btn = QPushButton(self.get_text('replace_commander'), self.main_container)
         self.replace_commander_btn.clicked.connect(self.on_replace_commander)
         self.replace_commander_btn.setStyleSheet('''
             QPushButton {
@@ -564,7 +561,10 @@ class TimerWindow(QMainWindow):
                                 continue
                     
                     # 计算滚动位置，使最接近的时间点位于可见区域中间
-                    visible_rows = self.table_area.height() // self.table_area.rowHeight(0)
+                    if self.table_area.rowHeight(0) == 0:
+                        return  # 或者返回你需要的其他值
+                    else:
+                        visible_rows = self.table_area.height() // self.table_area.rowHeight(0)
                     scroll_position = max(0, closest_row - (visible_rows // 2))
                     
                     # 设置滚动位置
@@ -598,9 +598,11 @@ class TimerWindow(QMainWindow):
         if getattr(sys, 'frozen', False):
             # 如果是打包后的exe
             base_path = os.path.dirname(sys.executable)
+            self.logger.info(f'准备修改tray，检测到exe环境：{base_path}')
         else:
             # 如果是开发环境
             base_path = os.path.dirname(os.path.dirname(__file__))
+            self.logger.info(f'准备修改tray，检测到开发环境：{base_path}')
             
         icon_path = os.path.join(base_path, 'ico', 'fav.ico')
         self.logger.info(f'加载托盘图标: {icon_path}')
@@ -614,13 +616,26 @@ class TimerWindow(QMainWindow):
         
         # 创建托盘菜单
         tray_menu = QMenu()
-        show_action = QAction("显示", self)
-        quit_action = QAction("退出", self)
+        show_action = QAction(self.get_text("show_action"), self)
+        quit_action = QAction(self.get_text("quit_action"), self)
         
         show_action.triggered.connect(self.show)
         quit_action.triggered.connect(QApplication.instance().quit)
         
+        # 添加语言设置菜单
+        language_menu = QMenu(self.get_text("language_menu"), self)
+        maps_dir = get_resources_dir('resources', 'maps')
+        for lang_dir in os.listdir(maps_dir):
+            if os.path.isdir(os.path.join(maps_dir, lang_dir)) and lang_dir not in ['.', '..']:
+                language_action = QAction(lang_dir, self)
+                # 为当前选中的语言添加标记
+                if lang_dir == config.current_language:
+                    language_action.setText(f"{lang_dir}✓")
+                language_action.triggered.connect(lambda checked, lang=lang_dir: self.on_language_changed(lang))
+                language_menu.addAction(language_action)
+        
         tray_menu.addAction(show_action)
+        tray_menu.addMenu(language_menu)
         tray_menu.addAction(quit_action)
         
         # 设置托盘菜单的位置
@@ -890,17 +905,7 @@ class TimerWindow(QMainWindow):
             self.map_version_group.hide()
         
         try:
-            # 获取地图文件的完整路径
-            # 首先尝试在当前目录查找resources目录
-            current_dir = os.getcwd()
-            resources_dir = os.path.join(current_dir, 'resources')
-            
-            # 如果当前目录没有resources目录，则尝试在程序目录查找
-            if not os.path.exists(resources_dir):
-                self.logger.info(f'当前目录下未找到资源目录，尝试在程序目录查找')
-                resources_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources')
-            
-            map_file_path = os.path.join(resources_dir, map_name)
+            map_file_path = get_resources_dir('resources', 'maps', config.current_language, map_name)
             self.logger.info(f'尝试加载地图文件: {map_file_path}')
             
             # 读取地图文件内容
@@ -1204,6 +1209,70 @@ class TimerWindow(QMainWindow):
         except Exception as e:
             self.logger.error(f'注册全局快捷键失败: {str(e)}')
             self.logger.error(traceback.format_exc())
+            
+    def get_text(self, key):
+        """获取多语言文本"""
+        try:
+            config_path = get_resources_dir('resources', 'words.conf')
+            with open(config_path, 'r', encoding='utf-8') as f:
+                import json
+                content = json.load(f)
+                texts = content['qt_gui']
+                if config.current_language in texts and key in texts[config.current_language]:
+                    return texts[config.current_language][key]
+                return key
+        except Exception as e:
+            self.logger.error(f"加载语言配置文件失败: {str(e)}")
+            return key
+
+    def on_language_changed(self, lang):
+        """处理语言切换事件"""
+        # 更新config.py中的语言配置
+        if getattr(sys, 'frozen', False):  # 是否为打包的 exe
+            config_file = os.path.join(os.path.dirname(sys.executable), 'config.py')  # exe 所在目录
+        else:
+            config_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src','config.py') # 源码所在目录
+
+        self.logger.info(f"load config: {config_file}")
+
+        with open(config_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # 使用正则表达式替换current_language的值
+        new_content = re.sub(r"current_language\s*=\s*'[^']*'", f"current_language = '{lang}'", content)
+        
+        self.logger.info(f"update config: {config_file}")
+        with open(config_file, 'w', encoding='utf-8') as f:
+            f.write(new_content)
+        
+        # 更新config模块中的值
+        config.current_language = lang
+        
+        # 更新commander_selector的语言设置
+        if hasattr(self, 'commander_selector'):
+            self.commander_selector.set_language(lang)
+        
+        # 重新加载地图列表
+        resources_dir = get_resources_dir('resources', 'maps', lang)
+        if not resources_dir:
+            files = []
+        else:
+            files = list_files(resources_dir)
+        
+        # 清空并重新添加地图列表
+        self.combo_box.clear()
+        self.combo_box.addItems(files)
+        
+        # 如果有文件，自动加载第一个
+        if files:
+            self.on_map_selected(files[0])
+        
+        # 更新UI文本
+        self.map_label.setText(self.get_text('map_label'))
+        self.replace_commander_btn.setText(self.get_text('replace_commander'))
+        
+        # 重新初始化系统托盘菜单以更新语言选择标记
+        self.init_tray()
     
     def handle_lock_shortcut(self):
         """处理锁定快捷键"""

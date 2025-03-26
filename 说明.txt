@@ -1,6 +1,8 @@
 SC2 Timer 使用说明
 
-所有配置文件，包括没有后缀名称的“地图文件”如："虚空降临"，或者是conf、py结尾的文件,均可使用记事本或其他文本编辑器打开和修改，。
+Git: https://github.com/ylkangpeter/sc2-expo
+
+所有配置文件，包括没有后缀名称的"地图文件"如："虚空降临"，或者是conf、py结尾的文件,均可使用记事本或其他文本编辑器打开和修改，。
 
 一、免责声明
 本软件相关技术方案都来源于公开网络，仅供学习交流使用，不构成任何形式的盈利，如产生封禁等问题后果自负。
@@ -37,3 +39,47 @@ config.py文件包含了软件的基本配置项，如日志级别、快捷键�
 5. 作者水平合作很菜，请各位大佬带带
 
 有任何问题或者愿意带我打突变的欢迎投递：ylkangpeter@gmail.com
+
+
+=== English Version ===
+
+SC2 Timer User Guide
+
+Git: https://github.com/ylkangpeter/sc2-expo
+
+All configuration files, including "map files" without extensions (e.g., "Void Launch"), or files ending with conf and py, can be opened and modified using Notepad or other text editors.
+
+I. Disclaimer
+All technical solutions in this software are sourced from public networks and are for learning and exchange purposes only. It does not constitute any form of profit. Users are responsible for any consequences such as account bans.
+
+II. config.py Configuration File Instructions
+The config.py file contains basic software configuration items, such as log levels and hotkey settings. For detailed configuration instructions, please refer to the comments in the config.py file.
+
+III. Map File Instructions
+1. Map files are located in the resources directory
+2. Each map file corresponds to timing information for a mutation mission
+3. Map file format explanation:
+   - One timestamp per line
+   - Time format: minute:second description text
+   - Example: 2:00 First attack wave
+4. You can add or modify map files as needed
+5. If you find a map's prompts annoying, you can delete its contents or delete the file directly
+
+IV. replacement.conf File Instructions
+1. File location: resources/commander/replacement.conf
+2. File purpose: Configure replacement links for commanders on different servers
+3. File format explanation:
+   - current_region: Currently selected server region (CN/KR/EU/US)
+   - Each commander corresponds to a dictionary containing replacement links for different server regions
+   - You can customize replacement options by adding or modifying links
+4. Random replacement instructions:
+   - You can set commanders to exclude from random selection: If you want to exclude certain commanders during random replacement, edit the config.py file with BLACK_LIST = ['raynor', 'kerrigan']. This way, these two won't be selected when clicking random in the replacement interface. Restart the program after modification.
+5. Currently, CN (indefinitely?) and EU replacement links are not filled in, you'll need to find these links yourself
+
+Notes:
+1. It's recommended to backup configuration files before modification
+2. Ensure correct file format to avoid syntax errors
+3. Make sure to use UTF-8 encoding when saving files
+4. The build order timings and replacement commands are from NGA source. There might be errors in my copying, please modify if you find any.
+
+For any questions or if you're willing to play mutations with me, feel free to contact: ylkangpeter@gmail.com

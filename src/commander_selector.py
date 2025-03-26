@@ -9,6 +9,7 @@ from config import avatar
 from config import WIKI_URL
 import ast
 from PyQt5.QtCore import pyqtSignal
+from fileutil import get_resources_dir, list_files
 
 # 自定义提示窗口类，替代QToolTip
 class CustomTooltip(QLabel):
@@ -64,8 +65,14 @@ class CommanderSelector(QWidget):
         self.logger = logging.getLogger(__name__)
         self.commander_urls = {}
         self.load_commander_urls()
-        # 从配置文件中读取默认region
-        self.selected_region = self.commander_urls.get('current_region', 'KR')
+        # 从config.py中读取默认region和language
+        from config import current_region, current_language
+        self.selected_region = current_region.upper()
+        self.current_language = current_language
+        
+        # 加载多语言文本
+        self.texts = {}
+        self.load_texts()
         
         # 创建自定义提示窗口
         self.tooltip = CustomTooltip()
@@ -74,15 +81,56 @@ class CommanderSelector(QWidget):
         self.is_visible = True  # 控制窗口的显示/隐藏状态
         self.is_open = False    # 控制窗口的打开/关闭状态
         
+        # 保存提示文本标签的引用
+        self.hint_label = None
+        self.link_label = None
+        
         self.init_ui()
         
+    def update_ui_texts(self):
+        # 更新所有UI元素的文本
+        if hasattr(self, 'hint_label') and self.hint_label:
+            self.hint_label.setText(f"{self.get_text('disclaimer')}\n\n{self.get_text('usage_hint')}\n{self.get_text('random_hint')}")
+        if hasattr(self, 'link_label') and self.link_label:
+            self.link_label.setText(f'<a href="{WIKI_URL}" style="color: rgb(0, 191, 255); text-decoration: none;">{self.get_text("visit_wiki")}</a>')
+
+    def load_texts(self):
+        try:
+            config_path = get_resources_dir('resources', 'words.conf')
+            with open(config_path, 'r', encoding='utf-8') as f:
+                import json
+                content = json.load(f)
+                self.texts = content['commander_selector']
+                self.update_ui_texts()
+        except Exception as e:
+            self.logger.error(f"加载语言配置文件失败: {str(e)}")
+            self.texts = {}
+
+    def set_language(self, language):
+        self.logger.info(f"切换语言到: {language}")
+        self.current_language = language
+        # 记录当前窗口状态
+        was_visible = self.isVisible()
+        # 隐藏窗口
+        self.hide()
+        # 清理现有UI
+        for child in self.main_container.findChildren(QWidget):
+            child.deleteLater()
+        # 重新加载文本并初始化UI
+        self.load_texts()
+        self.init_ui()
+        # 如果之前是显示状态，则重新显示
+        if was_visible:
+            self.show()
+    
+    def get_text(self, key):
+        if not self.texts or self.current_language not in self.texts:
+            return key
+        return self.texts[self.current_language].get(key, key)
+    
     def load_commander_urls(self):
         try:
-            if getattr(sys, 'frozen', False):
-                base_path = os.path.dirname(sys.executable)
-            else:
-                base_path = os.path.dirname(os.path.dirname(__file__))
-            config_path = os.path.join(base_path, 'resources', 'commander', 'replacement.conf')
+            config_path = get_resources_dir('resources', 'commander', 'replacement.conf')
             with open(config_path, 'r', encoding='utf-8') as f:
                 content = f.read()
                 # 解析配置文件内容
@@ -191,13 +239,7 @@ class CommanderSelector(QWidget):
         self.grid_layout.setContentsMargins(1, 1, 1, 1)
 
         # 获取指挥官图标路径
-        if getattr(sys, 'frozen', False):
-            base_path = os.path.dirname(sys.executable)
-        else:
-            base_path = os.path.dirname(os.path.dirname(__file__))
-
-        commander_dir = os.path.join(base_path, 'ico', 'commander')
-
+        commander_dir = get_resources_dir('ico', 'commander')
 
         # 根据avatar数组添加指挥官按钮到网格
         for row_index, row_commanders in enumerate(avatar):
@@ -264,24 +306,25 @@ class CommanderSelector(QWidget):
 
         # 创建提示文本容器
         hint_container = QLabel(self.main_container)
-        hint_container.setGeometry(0, 300, 950, 140)
+        hint_container.setGeometry(0, 300, 950, 160)
         hint_container.setStyleSheet('background-color: transparent')
 
         # 创建提示文本标签
-        hint_label = QLabel(hint_container)
-        hint_label.setGeometry(20, 10, 910, 64)
-        hint_label.setText('免责声明：本软件相关技术方案都来源于公开网络，仅供学习交流使用，不构成任何形式的盈利，如产生封禁等问题后果自负。 作者: pppppp\n\n双击 头像 复制指令。  粘贴到聊天频道中-> 点击发送 -> 双击发送的链接 -> 进入替换图。\n选择随机替换时可以在config配置文件中排除不想要的指挥官。')
-        hint_label.setStyleSheet('color: white; font-size: 13px; line-height: 1.5;')
-        hint_label.setWordWrap(True)
-        hint_label.setAlignment(Qt.AlignCenter)
+        self.hint_label = QLabel(hint_container)
+        self.hint_label.setGeometry(20, 10, 910, 80)
+        self.hint_label.setText(f"{self.get_text('disclaimer')}\n\n{self.get_text('usage_hint')}\n{self.get_text('random_hint')}")
+
+        self.hint_label.setStyleSheet('color: white; font-size: 13px; line-height: 1.5;')
+        self.hint_label.setWordWrap(True)
+        self.hint_label.setAlignment(Qt.AlignCenter)
 
         # 创建链接标签
-        link_label = QLabel(hint_container)
-        link_label.setGeometry(20, 94, 910, 20)
-        link_label.setText('<a href="'+WIKI_URL+'" style="color: rgb(0, 191, 255); text-decoration: none;">--访问突变列表网页--</a>')
-        link_label.setStyleSheet('font-size: 13px; a { color: rgb(0, 191, 255); } a:visited { color: rgb(0, 191, 255); }')
-        link_label.setAlignment(Qt.AlignCenter)
-        link_label.setOpenExternalLinks(True)
+        self.link_label = QLabel(hint_container)
+        self.link_label.setGeometry(20, 94, 910, 20)
+        self.link_label.setText(f'<a href="{WIKI_URL}" style="color: rgb(0, 191, 255); text-decoration: none;">{self.get_text("visit_wiki")}</a>')
+        self.link_label.setStyleSheet('font-size: 13px; a { color: rgb(0, 191, 255); } a:visited { color: rgb(0, 191, 255); }')
+        self.link_label.setAlignment(Qt.AlignCenter)
+        self.link_label.setOpenExternalLinks(True)
 
     def showEvent(self, event):
         if not self.is_visible:
@@ -334,22 +377,32 @@ class CommanderSelector(QWidget):
         self.selected_region = region
         self.region_changed.emit(region)
         
-        # 更新配置文件中的current_region
+        # 更新config.py中的current_region
         try:
-            config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'commander', 'replacement.conf')
+            if getattr(sys, 'frozen', False):  # 是否为打包的 exe
+                config_path = os.path.join(os.path.dirname(sys.executable), 'config.py')  # exe 所在目录
+            else:
+                config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src', 'config.py')  # 源码所在目录
+
+            self.logger.info(f"load config: {config_path}")
+            
             with open(config_path, 'r', encoding='utf-8') as f:
                 content = f.read()
             
-            # 更新current_region的值
-            if 'current_region = ' in content:
-                content = content.replace(f"current_region = '{self.commander_urls.get('current_region', 'KR')}'\n", f"current_region = '{region}'\n")
+            # 使用正则表达式更新current_region的值
+            import re
+            pattern = re.compile(r"current_region\s*=\s*['\"]([^'\"]*)['\"]")
+            if pattern.search(content):
+                new_content = pattern.sub(f"current_region = '{region.lower()}'", content)
                 
-                # 写入更新后的内容
-                with open(config_path, 'w', encoding='utf-8') as f:
-                    f.write(content)
-                    
-                # 更新commander_urls中的current_region
-                self.commander_urls['current_region'] = region
+                # 使用临时文件确保写入的原子性
+                temp_path = config_path + '.tmp'
+                with open(temp_path, 'w', encoding='utf-8') as f:
+                    f.write(new_content)
+                os.replace(temp_path, config_path)
+                self.logger.info(f"成功更新区域配置为: {region}")
+            else:
+                self.logger.error("未找到current_region配置项")
         except Exception as e:
             self.logger.error(f"更新区域配置失败: {str(e)}")
         
@@ -362,15 +415,15 @@ class CommanderSelector(QWidget):
             if url:
                 # 复制URL到剪贴板
                 clipboard = QApplication.clipboard()
-                clipboard.setText(f"替换为{commander}指挥官: {url}")
+                clipboard.setText(self.get_text('replace_commander').format(commander, url))
                 # 显示新提示
-                self.tooltip.showText(pos, f"替换为 {commander} 指挥官", 5000)
+                self.tooltip.showText(pos, self.get_text('replace_commander').format(commander, ''), 5000)
             else:
                 # 显示新提示
-                self.tooltip.showText(pos, f"对应指挥官未配置，请修改配置文件", 5000)
+                self.tooltip.showText(pos, self.get_text('commander_not_configured'), 5000)
         else:
             # 显示新提示
-            self.tooltip.showText(pos, f"对应指挥官未配置，请修改配置文件", 5000)
+            self.tooltip.showText(pos, self.get_text('commander_not_configured'), 5000)
             
     def on_random_commander_clicked(self, event, btn):
         import random
@@ -393,9 +446,9 @@ class CommanderSelector(QWidget):
             
             # 复制URL到剪贴板
             clipboard = QApplication.clipboard()
-            clipboard.setText(f"替换为{selected_commander}指挥官: {url}")
+            clipboard.setText(self.get_text('replace_commander').format(selected_commander, url))
             # 显示新提示
-            self.tooltip.showText(pos, f"随机替换为 {selected_commander} 指挥官", 5000)
+            self.tooltip.showText(pos, self.get_text('random_replace').format(selected_commander), 5000)
         else:
             # 显示新提示
-            self.tooltip.showText(pos, "没有可用的指挥官", 5000)
+            self.tooltip.showText(pos, self.get_text('no_available_commander'), 5000)
