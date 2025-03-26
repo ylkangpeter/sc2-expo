@@ -48,6 +48,7 @@ pip install -r requirements.txt
 神庙、虚空撕裂等图，会显示AB图的选项，可以点选，或者通过快捷键 ctrl + shift + [ 来改变状态，快捷键修改详见config.py
 
 ## 界面预览
+![程序界面预览](img/tray.png)
 ![程序界面预览](img/sample.png)
 ![程序界面预览](img/背板.png)
 ![程序界面预览](img/替换随机指挥官.png)
