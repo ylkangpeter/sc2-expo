@@ -1,0 +1,8 @@
+# 步战机甲
+1	zealot
+2	zealot|sentry
+3	immortal|sentry
+4	immortal|zealot|scout
+5	sentry|zealot|scout|colossus
+6	zealot|scout|colossus
+7	zealot|sentry|colossus|immortal

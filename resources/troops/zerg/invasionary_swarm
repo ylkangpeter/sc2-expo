@@ -1,0 +1,8 @@
+#	侵略虫群
+1	zergling
+2	zergling|hydralisk
+3	zergling|hydralisk|lurker
+4	hydralisk|lurker
+5	hydralisk|lurker|broodqueen
+6	zergling|hydralisk|ultralisk
+7	zergling|hydralisk|lurker|ultralisk|broodqueen

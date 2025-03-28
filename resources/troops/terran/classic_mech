@@ -1,0 +1,8 @@
+#	旧世机械团
+1	vulture
+2	vulture|goliath
+3	vulture|goliath|wraith
+4	vulture|goliath|wraith|siegetank
+5	vulture|goliath|siegetank|battlecruiser
+6	goliath|battlecruiser|sciencevessel
+7	goliath|siegetank|battlecruiser|sciencevessel

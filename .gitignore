@@ -8,6 +8,7 @@ build/
 *.egg-info/
 
 dist/
+img/userdata
 
 # Virtual environment
 venv/

@@ -1,0 +1,8 @@
+#	旧世步兵团
+1	marine
+2	marine|medic
+3	marine|medic|firebat
+4	marine|medic|siegetank
+5	marine|medic|siegetank|ghost
+6	marine|medic|firebat|siegetank|sciencevessel
+7	marine|medic|siegetank|ghost|sciencevessel

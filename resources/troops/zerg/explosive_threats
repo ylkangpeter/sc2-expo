@@ -1,0 +1,8 @@
+#	爆炸威胁
+1	zergling
+2	zergling|baneling
+3	zergling|aberration|scourge|viper|mutalisk
+4	zergling|aberration|scourge|swarmhost|mutalisk
+5	zergling|aberration|scourge|viper|mutalisk|baneling
+6	zergling|swarmhost|scourge|viper|mutalisk
+7	aberration|swarmhost|scourge|viper|mutalisk

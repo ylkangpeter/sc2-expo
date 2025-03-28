@@ -1,0 +1,8 @@
+#	肆虐扩散
+1	roach
+2	roach|zergling
+3	roach|hydralisk
+4	roach|hydralisk|ravager|lurker
+5	roach|hydralisk|infestor|lurker
+6	roach|hydralisk|infestor|ravager|ultralisk
+7	roach|hydralisk|infestor|ravager|ultralisk

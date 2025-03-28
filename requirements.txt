@@ -3,3 +3,6 @@ pyqt5-qt5==5.15.2
 requests==2.31.0
 pywin32==306
 keyboard==0.13.5
+opencv-python==4.8.1.78
+numpy==1.24.3
+scikit-image==0.22.0

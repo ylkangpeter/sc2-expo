@@ -1,0 +1,8 @@
+# 袭扰炮击
+1	adept
+2	adept|sentry
+3	adept|immortal
+4	adept|immortal|scout
+5	adept|sentry|disruptor|reaver
+6	adept|scout|disruptor|reaver
+7	sentry|immortal|disruptor|reaver

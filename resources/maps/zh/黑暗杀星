@@ -1,7 +1,9 @@
-2:48	红点-上 或 左
-7:00	红点-上 或 左
-9:00	红点-左
-12:30	红点-上
-16:00	红点-上 或 左
-19:00	红点-上 或 左
-22:00	红点-上 或 左
+2:48	红点-上 或 左	T1
+7:00	红点-上 或 左	T2|hybriddestroyer*2
+9:00	红点-左	T3|hybriddestroyer*2
+12:30	红点-上	T4|hybriddestroyer*2|hybridbehemoth
+16:00	红点-上 或 左	T5|hybriddestroyer*2|hybridbehemoth
+19:00	红点-上 或 左	T6|hybriddestroyer*2|hybridbehemoth
+22:00	红点-上 或 左	T5|hybriddestroyer*2|hybridbehemoth
+24:00	红点-上 或 左	T6|hybriddestroyer*2|hybridbehemoth
+26:00	红点-上 或 左	T6|hybriddestroyer*2|hybridbehemoth
