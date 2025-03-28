@@ -1,0 +1,8 @@
+#	遮天蔽日
+1	zergling
+2	zergling|mutalisk
+3	zergling|mutalisk|scourge|broodqueen
+4	zergling|mutalisk|scourge|guardian
+5	mutalisk|guardian|devourer
+6	mutalisk|guardian|devourer|broodqueen
+7	guardian|devourer|scourge|broodqueen

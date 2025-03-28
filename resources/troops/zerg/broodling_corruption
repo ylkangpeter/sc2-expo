@@ -1,0 +1,8 @@
+#	滋生腐化
+1	zergling
+2	zergling|mutalisk
+3	zergling|mutalisk|baneling
+4	zergling|mutalisk|infestor
+5	zergling|mutalisk|infestor|corruptor
+6	zergling|mutalisk|infestor|broodlord
+7	corruptor|mutalisk|infestor|broodlord

@@ -1,0 +1,8 @@
+# 突击团
+1	marine|medic
+2	marine|medic|marauder
+3	medic|marauder|firebat
+4	marine|ghost|medivac|siegetank
+5	marine|marauder|medivac|siegetank
+6	marine|marauder|ghost|siegetank|sciencevessel
+7	marine|battlecruiser|ghost|siegetank|sciencevessel

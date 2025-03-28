@@ -158,7 +158,8 @@ class CommanderSelector(QWidget):
         # 创建主容器
         self.main_container = QWidget(self)
         self.main_container.setGeometry(0, 0, 950, 450)
-        self.main_container.setStyleSheet('background-color: rgba(43, 43, 43, 200); border-radius: 10px; border: none;')
+        from config import COMMANDER_SELECTOR_BG_COLOR
+        self.main_container.setStyleSheet(f'background-color: {COMMANDER_SELECTOR_BG_COLOR}; border-radius: 10px; border: none;')
 
         # 创建关闭按钮容器
         close_button_container = QLabel(self.main_container)

@@ -120,6 +120,33 @@ class TimerWindow(QMainWindow):
         # 初始化时设置为锁定状态（不可点击）
         # 使用延迟调用，确保窗口已完全初始化
         QTimer.singleShot(100, lambda: self.on_control_state_changed(False))
+        
+        # 如果开启了调试模式，显示敌方单位信息框
+        if config.DEBUG_SHOW_ENEMY_INFO_SQUARE:
+            from image_util import draw_square
+            # 获取屏幕大小
+            screen = QApplication.screens()[config.GAME_SCREEN]
+            screen_geometry = screen.geometry()
+            screen_width = screen_geometry.width()
+            screen_height = screen_geometry.height()
+            
+            # 绘制AMON_RACE矩形（从右侧和底部计算位置）
+            draw_square(screen_width - config.GAME_ICON_POS_AMON_RACE[0],
+                       screen_height - config.GAME_ICON_POS_AMON_RACE[1],
+                       config.GAME_ICON_POS_AMON_RACE[2],
+                       config.GAME_ICON_POS_AMON_RACE[3])
+            
+            # 绘制AMON_TROOPS矩形（从右侧和底部计算位置）
+            draw_square(screen_width - config.GAME_ICON_POS_AMON_TROOPS[0],
+                       screen_height - config.GAME_ICON_POS_AMON_TROOPS[1],
+                       config.GAME_ICON_POS_AMON_TROOPS[2],
+                       config.GAME_ICON_POS_AMON_TROOPS[3])
+            
+            # 绘制MALFUNCTION_PROBE矩形（从左侧和顶部计算位置）
+            draw_square(config.GAME_ICON_POS_MALFUNCTION_PROBE[0],
+                       config.GAME_ICON_POS_MALFUNCTION_PROBE[1],
+                       config.GAME_ICON_POS_MALFUNCTION_PROBE[2],
+                       config.GAME_ICON_POS_MALFUNCTION_PROBE[3])
 
     def get_current_screen(self):
         """获取当前窗口所在的显示器"""
@@ -153,10 +180,32 @@ class TimerWindow(QMainWindow):
         if hasattr(self, 'control_window'):
             self.update_control_window_position()
         
+    def getRace(self):
+        """获取当前种族"""
+        if config.DEBUG_SHOW_ENEMY_INFO_SQUARE:
+            return 'protoss'
+        return self._race if hasattr(self, '_race') else ''
+
+    def getArmy(self):
+        """获取当前军队"""
+        if config.DEBUG_SHOW_ENEMY_INFO_SQUARE:
+            return 'vanguard_of_aiur'
+        return self._army if hasattr(self, '_army') else ''
+
+    def setRace(self, race):
+        """设置当前种族"""
+        if not config.DEBUG_SHOW_ENEMY_INFO_SQUARE:
+            self._race = race
+
+    def setArmy(self, army):
+        """设置当前军队"""
+        if not config.DEBUG_SHOW_ENEMY_INFO_SQUARE:
+            self._army = army
+
     def init_ui(self):
         """初始化用户界面"""
         self.setWindowTitle('SC2 Timer')
-        self.setGeometry(0, 300, 167, 30)  # 调整初始窗口位置，x坐标设为0
+        self.setGeometry(0, 300, config.MAIN_WINDOW_WIDTH, 30)  # 调整初始窗口位置，x坐标设为0
         
         # 设置窗口样式 - 不设置点击穿透，这将由on_control_state_changed方法控制
         self.setWindowFlags(
@@ -173,8 +222,9 @@ class TimerWindow(QMainWindow):
         
         # 创建主容器控件
         self.main_container = QWidget(self)
-        self.main_container.setGeometry(0, 0, 167, 50)  # 调整主容器初始高度
-        self.main_container.setStyleSheet('background-color: rgba(43, 43, 43, 96)')
+        self.main_container.setGeometry(0, 0, config.MAIN_WINDOW_WIDTH, 50)  # 调整主容器初始高度
+        from config import MAIN_WINDOW_BG_COLOR
+        self.main_container.setStyleSheet(f'background-color: {MAIN_WINDOW_BG_COLOR}')
         
         # 创建时间显示标签
         self.time_label = QLabel(self.current_time, self.main_container)
@@ -224,47 +274,84 @@ class TimerWindow(QMainWindow):
         # 创建表格显示区
         from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView
         self.table_area = QTableWidget(self.main_container)
-        self.table_area.setGeometry(0, 65, 167, 185)  # 保持表格区域位置不变
-        self.table_area.setColumnCount(2)
+        self.table_area.setGeometry(0, 65, config.MAIN_WINDOW_WIDTH, config.TABLE_HEIGHT)  # 保持表格区域位置不变
+        self.table_area.setColumnCount(3)
         self.table_area.horizontalHeader().setVisible(False)  # 隐藏水平表头
         self.table_area.setColumnWidth(0, 50)  # 设置时间列的固定宽度
+        self.table_area.setColumnWidth(2, 5)  # 设置时间列的固定宽度
+        self.table_area.setColumnWidth(1, config.MAIN_WINDOW_WIDTH - 55)  # 设置文字列的固定宽度
         self.table_area.verticalHeader().setVisible(False)  # 隐藏垂直表头
         self.table_area.setEditTriggers(QTableWidget.NoEditTriggers)  # 设置表格只读
         self.table_area.setSelectionBehavior(QTableWidget.SelectRows)  # 设置选择整行
         self.table_area.setShowGrid(False)  # 隐藏网格线
-        self.table_area.setStyleSheet('''
-            QTableWidget { 
+        self.table_area.setStyleSheet(f'''
+            QTableWidget {{ 
                 border: none; 
                 background-color: transparent; 
                 padding-left: 5px; 
-            } 
-            QTableWidget::item { 
+                font-size: {config.TABLE_FONT_SIZE}px;
+                font-family: Arial;
+            }}
+            QTableWidget::horizontalHeader {{ 
+                border: none;
+                background-color: transparent;
                 padding: 0px;
+                padding-left: 5px;
                 text-align: left;
-                height: 14px;
-            } 
-            QTableWidget::item:selected { 
+                color: {config.TABLE_FONT_COLOR};
+            }}
+            QTableWidget::verticalHeader {{ 
+                border: none;
+                background-color: transparent;
+                padding: 0px;
+                padding-left: 5px;
+                text-align: left;
+                color: {config.TABLE_FONT_COLOR};
+            }}
+            QTableWidget::horizontalHeader {{ 
+                border: none;
+                background-color: transparent;
+                padding: 0px;
+                padding-left: 5px;
+                text-align: left;
+                color: {config.TABLE_FONT_COLOR};
+            }}
+            QTableWidget::verticalHeader {{
+                border: none;
+                background-color: transparent;
+                padding: 0px;
+                padding-left: 5px;
+                text-align: left;
+                color: {config.TABLE_FONT_COLOR};
+            }}
+            QTableWidget::item {{ 
+                padding: 0px;
+                padding-left: 5px;
+                text-align: left;
+                color: {config.TABLE_FONT_COLOR};
+            }}
+            QTableWidget::item:selected {{ 
                 background-color: transparent; 
                 color: rgb(255, 255, 255); 
                 border: none; 
                 text-align: left;
-            } 
-            QTableWidget::item:focus { 
+            }}
+            QTableWidget::item:focus {{ 
                 background-color: transparent; 
                 color: rgb(255, 255, 255); 
                 border: none; 
                 text-align: left;
-            }''')
+            }}''')
 
         # 设置表格的滚动条策略
         self.table_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.table_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
  
-        self.setFixedSize(167, 250)  # 固定窗口大小为250
+        # self.setFixedSize(config.MAIN_WINDOW_WIDTH, 250)  # 固定窗口大小为250
  
         
         # 调整主窗口大小以适应新添加的控件
-        self.main_container.setGeometry(0, 0, 167, 335)  # 调整容器高度
+        self.main_container.setGeometry(0, 0, config.MAIN_WINDOW_WIDTH, 335)  # 调整容器高度
         
         # 创建地图标签
         self.map_label = QLabel(self.get_text('map_label'), self.main_container)
@@ -523,6 +610,7 @@ class TimerWindow(QMainWindow):
                     for row in range(self.table_area.rowCount()):
                         time_item = self.table_area.item(row, 0)
                         event_item = self.table_area.item(row, 1)
+                        army_item = self.table_area.item(row, 2)
                         if time_item and time_item.text():
                             try:
                                 # 解析表格中的时间（格式可能是MM:SS或HH:MM:SS）
@@ -551,7 +639,7 @@ class TimerWindow(QMainWindow):
                                         # 显示完整的时间和事件信息作为Toast提醒
                                         # 只有当Toast不可见时才显示，避免重复触发
                                         if not self.toast_label.isVisible():
-                                            toast_message = f"{time_item.text()} {event_item.text()}"
+                                            toast_message = f"{time_item.text()}\t{event_item.text()}" + (f"\t{army_item.text()}" if army_item else "")
                                             self.show_toast(toast_message, config.TOAST_DURATION)
                                 else:  # 未来的时间
                                     time_item.setForeground(QBrush(QColor(255, 255, 255)))
@@ -570,7 +658,7 @@ class TimerWindow(QMainWindow):
                     # 设置滚动位置
                     self.table_area.verticalScrollBar().setValue(scroll_position)
                 except Exception as e:
-                    self.logger.error(f'调整表格滚动位置和颜色失败: {str(e)}')
+                    self.logger.error(f'调整表格滚动位置和颜色失败: {str(e)}\n{traceback.format_exc()}')
 
             else:
                 self.logger.debug('未获取到有效的游戏时间数据')
@@ -946,7 +1034,14 @@ class TimerWindow(QMainWindow):
                         event_item.setForeground(QBrush(QColor(255, 255, 255)))  # 设置事件列文字颜色为白色
                         self.table_area.setItem(row, 1, event_item)
                         
-                        self.logger.info(f'已添加表格内容 - 行{row+1}: 时间={parts[0]}, 事件={parts[1]}')
+                        if len(parts) == 3:
+                            army_item = QTableWidgetItem(parts[2])
+                            army_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+                            army_item.setForeground(QBrush(QColor(255, 255, 255)))  # 设置事件
+                            self.table_area.setItem(row, 2, army_item)
+                            self.logger.info(f'已添加表格内容 - 行{row+1}: 时间={parts[0]}, 事件={parts[1]}, {parts[2]}')
+                        else:
+                            self.logger.info(f'已添加表格内容 - 行{row+1}: 时间={parts[0]}, 事件={parts[1]}')
                     else:
                         # 对于不符合格式的行，将整行内容显示在事件列
                         event_item = QTableWidgetItem(line)
@@ -954,14 +1049,9 @@ class TimerWindow(QMainWindow):
                         event_item.setForeground(QBrush(QColor(255, 255, 255)))  # 设置事件列文字颜色为白色
                         
                         self.table_area.setItem(row, 0, event_item)
-                        self.table_area.setSpan(row, 0, 1, 2)  # 将当前行的两列合并为一列
+                        self.table_area.setSpan(row, 0, 1, 3)  # 将当前行的两列合并为一列
 
                         self.logger.info(f'已添加不规范行内容到合并单元格 - 行{row+1}: {line}')
-                
-                # 调整列宽
-                self.table_area.setColumnWidth(0, 50)  # 时间列固定宽度
-                self.table_area.setColumnWidth(1, 107)  # 事件列宽度为剩余空间
-                self.logger.info('已完成表格列宽调整')
                 
                 # 验证表格内容
                 row_count = self.table_area.rowCount()
@@ -978,7 +1068,7 @@ class TimerWindow(QMainWindow):
                 return
             
         except Exception as e:
-            self.logger.error(f'加载地图文件时出错: {str(e)}')
+            self.logger.error(f'加载地图文件时出错: {str(e)}\n{traceback.format_exc()}')
 
     def init_toast(self):
         """初始化Toast提示组件"""
@@ -1039,23 +1129,150 @@ class TimerWindow(QMainWindow):
         """显示Toast提示"""
         # 检查游戏状态，非游戏中状态不显示提示
         from mainfunctions import get_game_screen
-        if not force_show and get_game_screen() != 'in_game':
-            self.logger.info('非游戏中状态，不显示Toast提示')
+        if not force_show and (get_game_screen() != 'in_game' or not config.TOAST_ALLOWED):
+            self.logger.info('非游戏中状态或禁用toast，不显示Toast提示')
             return
-            
+        else:
+            self.logger.info('显示Toast提示')
+
         if duration is None:
             duration = config.TOAST_DURATION
-            
-        self.toast_label.setText(message)
-        self.toast_label.adjustSize()
-        
-        # 获取主窗体当前所在的屏幕
+
+        # 创建一个水平布局来容纳文本和图标
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(5)
+
+        # 解析消息内容
+        parts = message.split('\t')
+        self.logger.info(f'split 行数据: {len(parts)},{parts}')
+        display_text = parts[0] + ' ' + parts[1]
+        if len(parts) >= 3:
+            # 查找T标识的位置
+            troops_data = parts[2].split('|')
+            if troops_data and troops_data[0].startswith('T'):
+                # 截断文本到T标识处
+                display_text = display_text + ' ' + troops_data[0]
+
+        # 添加文本标签
+        text_label = QLabel(display_text)
+        text_label.setFont(QFont('Arial', config.TOAST_FONT_SIZE))
+        text_label.setStyleSheet(f'color: {config.TOAST_FONT_COLOR}; background-color: transparent;')
+        layout.addWidget(text_label)
+
+        # 解析第三列数据，获取部队图标
+        if len(parts) >= 3:
+            troops_data = parts[2].split('|')
+            self.logger.info(f'解析第三列数据: {parts[2]}')
+            if troops_data and troops_data[0].startswith('T'):
+                # 创建一个垂直布局来容纳两行图标
+                icons_container = QWidget()
+                icons_layout = QVBoxLayout(icons_container)
+                icons_layout.setContentsMargins(0, 0, 0, 0)
+                icons_layout.setSpacing(5)
+                layout.addWidget(icons_container)
+                
+                # 创建第一行布局用于显示Tx对应的兵种图标
+                tx_container = QWidget()
+                tx_layout = QHBoxLayout(tx_container)
+                tx_layout.setContentsMargins(0, 0, 0, 0)
+                tx_layout.setSpacing(2)
+                icons_layout.addWidget(tx_container)
+                
+                # 创建第二行布局用于显示hybrid兵种图标
+                hybrid_container = QWidget()
+                hybrid_layout = QHBoxLayout(hybrid_container)
+                hybrid_layout.setContentsMargins(0, 0, 0, 0)
+                hybrid_layout.setSpacing(2)
+                icons_layout.addWidget(hybrid_container)
+                try:
+                    # 获取种族和军队配置
+                    race = self.getRace()
+                    army = self.getArmy()
+                    self.logger.info(f'当前种族: {race}, 军队配置: {army}')
+                    if race and army:
+                        # 读取军队配置文件
+                        army_file = get_resources_dir('resources', 'troops', race, army)
+                        self.logger.info(f'读取军队配置文件: {army_file}')
+                        if os.path.exists(army_file):
+                            with open(army_file, 'r', encoding='utf-8') as f:
+                                for line in f:
+                                    line = line.strip()
+                                    if line:
+                                        army_parts = line.split()
+                                        if len(army_parts) >= 2 and army_parts[0] == troops_data[0][1:]:
+                                            # 获取对应的图标
+                                            icons = army_parts[1].split('|')
+                                            self.logger.info(f'找到匹配的部队配置: {line}, 图标: {icons}')
+                                            for icon in icons:
+                                                icon_path = get_resources_dir('ico', 'troops', race, f'{icon}.png')
+                                                self.logger.info(f'加载图标文件: {icon_path}')
+                                                if os.path.exists(icon_path):
+                                                    icon_label = QLabel()
+                                                    pixmap = QPixmap(icon_path)
+                                                    icon_label.setPixmap(pixmap.scaled(config.TROOP_ICON_SIZE, config.TROOP_ICON_SIZE, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                                                    tx_layout.addWidget(icon_label)
+                                                else:
+                                                    self.logger.warning(f'图标文件不存在: {icon_path}')
+                        else:
+                            self.logger.warning(f'军队配置文件不存在: {army_file}')
+                    else:
+                        self.logger.warning('未获取到种族或军队配置')
+                except Exception as e:
+                    self.logger.error(f'解析部队图标失败: {str(e)}\n{traceback.format_exc()}')
+                
+                # 处理hybrid兵种图标
+                for troop_info in troops_data[1:]:
+                    if troop_info:
+                        troop_parts = troop_info.split('*')
+                        troop_name = troop_parts[0]
+                        troop_count = troop_parts[1] if len(troop_parts) > 1 else '1'
+                        
+                        # 创建水平布局来容纳图标和数量
+                        troop_container = QWidget()
+                        troop_layout = QHBoxLayout(troop_container)
+                        troop_layout.setContentsMargins(0, 0, 0, 0)
+                        troop_layout.setSpacing(2)
+                        
+                        # 加载hybrid兵种图标
+                        icon_path = get_resources_dir('ico', 'troops', 'hybrid', f'{troop_name}.jpg')
+                        if os.path.exists(icon_path):
+                            icon_label = QLabel()
+                            pixmap = QPixmap(icon_path)
+                            icon_label.setPixmap(pixmap.scaled(config.TROOP_ICON_SIZE, config.TROOP_ICON_SIZE, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                            troop_layout.addWidget(icon_label)
+                            
+                            # 添加数量标签
+                            count_label = QLabel(f'*{troop_count}')
+                            count_label.setFont(QFont('Arial', config.TROOP_HYBRCONT_FONT_SIZE))
+                            count_label.setStyleSheet(f'color: {config.TROOP_HYBRID_ICON_COLOR}; background-color: transparent;')
+                            troop_layout.addWidget(count_label)
+                            
+                            hybrid_layout.addWidget(troop_container)
+                        else:
+                            self.logger.warning(f'Hybrid兵种图标不存在: {icon_path}')
+
+        # 设置容器大小并显示
+        container.adjustSize()
+        container.setStyleSheet('background-color: transparent;')
+        container.setAttribute(Qt.WA_TranslucentBackground)
+        container.setAttribute(Qt.WA_TransparentForMouseEvents)
+        container.setWindowFlags(
+            Qt.FramelessWindowHint |
+            Qt.WindowStaysOnTopHint |
+            Qt.Tool
+        )
+
+        # 移动到屏幕中央
         current_screen = self.get_current_screen()
         screen_geometry = current_screen.geometry()
-        x = screen_geometry.center().x() - self.toast_label.width() // 2
+        x = screen_geometry.center().x() - container.width() // 2
         y = int(self.height() * config.TOAST_POSITION)
-        self.toast_label.move(x, y)
-        
+        container.move(x, y)
+
+        # 显示容器并启动定时器
+        self.toast_label = container
         self.toast_label.show()
         self.toast_timer.start(duration)
 
@@ -1199,10 +1416,12 @@ class TimerWindow(QMainWindow):
                 row = selected_items[0].row()
                 time_item = self.table_area.item(row, 0)
                 event_item = self.table_area.item(row, 1)
+                army_item = self.table_area.item(row, 2)
                 if time_item and event_item:
                     time_text = time_item.text().strip()
                     event_text = event_item.text().strip()
-                    selected_text = f"{time_text} {event_text}" if time_text else event_text
+                    army_text = army_item.text().strip()
+                    selected_text = f"{time_text}\t{event_text}\t{army_text}" if time_text else event_text
                     self.show_toast(selected_text, config.TOAST_DURATION, force_show=True)  # 设置5000毫秒（5秒）后自动消失
             event.accept()
             

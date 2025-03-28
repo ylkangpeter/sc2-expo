@@ -1,12 +1,12 @@
-3:00	红点-右
-5:00	红点-左
-7:30	红点
-10:00	红点-右
-11:00	红点-左
-14:00	红点
-16:20	奖励红点-右
-16:48	红点-左
-19:18	红点-右
-21:40	奖励红点-左
-21:48	红点-右
-24:18	红点-右
+3:00	红点-右	T1
+5:00	红点-左	T2
+7:30	红点	T2|hybriddestroyer*2
+10:00	红点-右	T3|hybriddestroyer*2
+11:00	红点-左	T3|hybriddestroyer*3
+14:00	红点	T3|hybriddestroyer*3
+16:20	奖励红点-右	T2
+16:48	红点-左	T4|hybridbehemoth*2
+19:18	红点-右	T5|hybridbehemoth*2
+21:40	奖励红点-左	T2
+21:48	红点-右	T6|hybriddestroyer*2|hybridbehemoth*2
+24:18	红点-右	T7|hybriddestroyer*2|hybridbehemoth*2
