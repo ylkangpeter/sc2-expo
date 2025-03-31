@@ -77,7 +77,7 @@ BLACK_LIST = []
 
 #############################
 # 下面配置主要用于图像识别
-DEBUG_SHOW_ENEMY_INFO_SQUARE = True  # 是否显示敌方单位信息框 / Whether to show enemy unit information boxes
+DEBUG_SHOW_ENEMY_INFO_SQUARE = False  # 是否显示敌方单位信息框 / Whether to show enemy unit information boxes
 GAME_SCREEN = 0
 GAME_SCREEN_DPI = 96
 # 96 DPI	100%	标准 1080p 显示器
