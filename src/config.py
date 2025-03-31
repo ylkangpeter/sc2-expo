@@ -10,7 +10,7 @@ debug_mode = False  # 设置为True启用调试模式 / Set to True to enable de
 debug_time_factor = 5.0  # 调试模式下的时间流速因子 / Time flow factor in debug mode
 
 # 日志级别配置
-LOG_LEVEL = 'INFO'  # 日志级别，可选值：DEBUG, INFO, WARNING, ERROR, CRITICAL / Log level, available values: DEBUG, INFO, WARNING, ERROR, CRITICAL
+LOG_LEVEL = 'WARNING'  # 日志级别，可选值：DEBUG, INFO, WARNING, ERROR, CRITICAL / Log level, available values: DEBUG, INFO, WARNING, ERROR, CRITICAL
 
 # 快捷键
 MAP_SHORTCUT = 'ctrl + shift + ['  # 地图快捷键 / Map shortcut key
