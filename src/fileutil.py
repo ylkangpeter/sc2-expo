@@ -1,8 +1,7 @@
 import os
 import sys
-import logging
-
-logger = logging.getLogger(__name__)
+from logging_util import get_logger, setup_logger
+logger = get_logger(__name__)
 
 def get_resources_dir(*subdirs):
     """

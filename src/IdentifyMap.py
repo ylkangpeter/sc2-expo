@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Optional
-import logging
+from logging_util import get_logger
 
 map_checks = {
     '升格之恋': {
@@ -172,7 +172,7 @@ map_checks = {
 }
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 def identify_map(player_data: List[Dict[str, Any]]) -> Optional[str]:
     """ Identify a map based on the list of players """

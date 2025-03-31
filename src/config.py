@@ -1,10 +1,12 @@
+# -*- coding: utf-8 -*-
+
 # current region
 current_region = 'kr'  # 当前地区 / Current region
 current_language = 'zh'  # 当前语言 / Current language
 
 
 # 调试模式配置
-debug_mode = True  # 设置为True启用调试模式 / Set to True to enable debug mode
+debug_mode = False  # 设置为True启用调试模式 / Set to True to enable debug mode
 debug_time_factor = 5.0  # 调试模式下的时间流速因子 / Time flow factor in debug mode
 
 # 日志级别配置
@@ -13,6 +15,8 @@ LOG_LEVEL = 'INFO'  # 日志级别，可选值：DEBUG, INFO, WARNING, ERROR, CR
 # 快捷键
 MAP_SHORTCUT = 'ctrl + shift + ['  # 地图快捷键 / Map shortcut key
 LOCK_SHORTCUT = 'ctrl + shift + ]'  # 锁定快捷键 / Lock shortcut key
+SCREENSHOT_SHORTCUT = 'ctrl + shift + -'  # 截图快捷键 / Screenshot shortcut key
+SHOW_ARTIFACT_SHORTCUT = 'ctrl + shift + \\' 
 
 # Toast提示配置
 TOAST_ALLOWED = True  # 是否允许显示Toast提示 / Whether to allow displaying Toast notifications
@@ -75,10 +79,27 @@ BLACK_LIST = []
 # 下面配置主要用于图像识别
 DEBUG_SHOW_ENEMY_INFO_SQUARE = True  # 是否显示敌方单位信息框 / Whether to show enemy unit information boxes
 GAME_SCREEN = 0
-GAME_ICON_POS_AMON_RACE = [50, 200, 50, 50] # [x_from_right, y_from_bottom, width, height] 
-GAME_ICON_POS_AMON_TROOPS = [200, 250, 200, 80] # [x_from_right, y_from_bottom, width, height
+GAME_SCREEN_DPI = 96
+# 96 DPI	100%	标准 1080p 显示器
+# 120 DPI	125%	2K 显示器常用
+# 144 DPI	150%	2K 或 4K 显示器常用
+# 192 DPI	200%	4K 显示器常用
+# 288 DPI	300%	8K 显示器可能使用
+
+GAME_ICON_POS_AMON_RACE = [45, 300, 36, 36] # [x_from_right, y_from_bottom, width, height] 
+GAME_ICON_POS_AMON_TROOPS = [330, 463, 320, 145] # [x_from_right, y_from_bottom, width, height
 GAME_ICON_POS_MALFUNCTION_PROBE = [10, 200, 300, 30] # [x_from_left, y_from_top, width, height] 
 
 TROOP_ICON_SIZE = 50
 TROOP_HYBRID_ICON_COLOR = 'rgb(0, 255, 128)'
 TROOP_HYBRCONT_FONT_SIZE = 20
+
+ARTIFACTS_IMG_SCALE_RATIO = 0.7
+ARTIFACTS_IMG_GRAY = False
+ARTIFACTS_IMG_OPACITY = 0.5
+ARTIFACTS_POS_死亡摇篮 = [600/1174, 483/876, 40, 40] # [x占图像的比例, y占图像的比例, width px, height px]
+ARTIFACTS_POS_湮灭快车 = [830/1987, 1050/1353, 40, 40]
+ARTIFACTS_POS_净网行动 = [398/1496, 688/996, 40, 40]
+ARTIFACTS_POS_营救矿工 = [1080/1755, 391/844, 40, 40]
+ARTIFACTS_POS_亡者之夜 = [468/1242, 495/938, 40, 40]
+ARTIFACTS_POS_熔火危机 = [730/1783, 1200/1334, 40, 40]

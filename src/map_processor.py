@@ -1,8 +1,8 @@
 import os
-import logging
+from logging_util import get_logger
 import json
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class MapProcessor:
     def __init__(self):
