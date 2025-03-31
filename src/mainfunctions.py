@@ -1,6 +1,5 @@
 import time
 import json
-import logging
 import traceback
 import requests
 from PyQt5 import QtCore
@@ -8,8 +7,9 @@ from map_processor import MapProcessor
 from IdentifyMap import identify_map
 import config
 from debug_utils import get_mock_data, reset_mock, get_mock_screen_data
+from logging_util import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)        
 
 # 全局变量
 APP_CLOSING = False

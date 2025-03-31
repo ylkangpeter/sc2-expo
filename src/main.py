@@ -11,14 +11,21 @@ from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QGuiApplication
 from qt_gui import TimerWindow
-
+import logging_util
 def main():
+    logging_util.setup_logger()
     # 启用高DPI缩放
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
-    # 设置DPI缩放因子的舍入策略
-    QGuiApplication.setAttribute(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+    # 启用高DPI图标
+    QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
+    # 禁用原生对话框和原生小部件，确保统一的DPI缩放
+    QApplication.setAttribute(Qt.AA_DontUseNativeDialogs)
+    QApplication.setAttribute(Qt.AA_DontCreateNativeWidgetSiblings)
     
     app = QApplication(sys.argv)
+    # 设置DPI缩放策略为PassThrough，确保精确的DPI缩放
+    app.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+    
     timer = TimerWindow()
     sys.exit(app.exec_())
 

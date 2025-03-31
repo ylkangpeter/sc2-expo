@@ -2,9 +2,11 @@ import os
 import sys
 import re
 import time
-import logging
 import traceback
 import keyboard
+import ctypes
+import win32gui
+from ctypes import windll
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QLabel, QSystemTrayIcon, 
     QMenu, QAction, QApplication, QComboBox, 
@@ -21,33 +23,44 @@ from PyQt5.QtCore import Qt, QTimer, QPoint, pyqtSignal, QRect, QSize
 import config
 from PyQt5 import QtCore
 
+import image_util
 from fileutil import get_resources_dir, list_files
 
 class TimerWindow(QMainWindow):
     # 创建信号用于地图更新
     progress_signal = QtCore.pyqtSignal(list)
+    toggle_artifact_signal = pyqtSignal()
+
+    def get_screen_resolution(self):
+        user32 = ctypes.windll.user32
+        # user32.SetProcessDPIAware()  # 让 Python 以物理 DPI 运行
+        width = user32.GetSystemMetrics(0)  # 主屏幕宽度
+        height = user32.GetSystemMetrics(1)  # 主屏幕高度
+        return width, height
 
     def __init__(self):
         super().__init__()
+        
+        # 初始化artifact_window
+        from artifacts import ArtifactWindow
+        self.artifact_window = ArtifactWindow(self)
+
+        # 设置窗口属性以支持DPI缩放
+        self.setAttribute(Qt.WA_DontCreateNativeAncestors)
+        self.setAttribute(Qt.WA_NativeWindow)
         if getattr(sys, 'frozen', False):  # 是否为打包的 exe
             base_dir = os.path.dirname(sys.executable)  # exe 所在目录
         else:
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # 源码所在目录
+        
+        # 初始化敌方单位识别器
+        from enemy_recognizer import EnemyRecognizer
+        self.enemy_recognizer = EnemyRecognizer()
 
-        log_dir = os.path.join(base_dir, 'log')
-        os.makedirs(log_dir, exist_ok=True)  # 确保目录存在
 
         # 初始化日志记录器
-        log_file =  os.path.join(log_dir, 'sc2_timer.log')
-        logging.basicConfig(
-            level=getattr(logging, config.LOG_LEVEL),
-            format='%(asctime)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.FileHandler(log_file, encoding='utf-8', mode='a'),
-                logging.StreamHandler()
-            ]
-        )
-        self.logger = logging.getLogger(__name__)
+        from logging_util import get_logger
+        self.logger = get_logger(__name__)
         self.logger.info('SC2 Timer 启动')
         
         # 初始化状态
@@ -121,33 +134,6 @@ class TimerWindow(QMainWindow):
         # 使用延迟调用，确保窗口已完全初始化
         QTimer.singleShot(100, lambda: self.on_control_state_changed(False))
         
-        # 如果开启了调试模式，显示敌方单位信息框
-        if config.DEBUG_SHOW_ENEMY_INFO_SQUARE:
-            from image_util import draw_square
-            # 获取屏幕大小
-            screen = QApplication.screens()[config.GAME_SCREEN]
-            screen_geometry = screen.geometry()
-            screen_width = screen_geometry.width()
-            screen_height = screen_geometry.height()
-            
-            # 绘制AMON_RACE矩形（从右侧和底部计算位置）
-            draw_square(screen_width - config.GAME_ICON_POS_AMON_RACE[0],
-                       screen_height - config.GAME_ICON_POS_AMON_RACE[1],
-                       config.GAME_ICON_POS_AMON_RACE[2],
-                       config.GAME_ICON_POS_AMON_RACE[3])
-            
-            # 绘制AMON_TROOPS矩形（从右侧和底部计算位置）
-            draw_square(screen_width - config.GAME_ICON_POS_AMON_TROOPS[0],
-                       screen_height - config.GAME_ICON_POS_AMON_TROOPS[1],
-                       config.GAME_ICON_POS_AMON_TROOPS[2],
-                       config.GAME_ICON_POS_AMON_TROOPS[3])
-            
-            # 绘制MALFUNCTION_PROBE矩形（从左侧和顶部计算位置）
-            draw_square(config.GAME_ICON_POS_MALFUNCTION_PROBE[0],
-                       config.GAME_ICON_POS_MALFUNCTION_PROBE[1],
-                       config.GAME_ICON_POS_MALFUNCTION_PROBE[2],
-                       config.GAME_ICON_POS_MALFUNCTION_PROBE[3])
-
     def get_current_screen(self):
         """获取当前窗口所在的显示器"""
         window_geometry = self.geometry()
@@ -182,25 +168,49 @@ class TimerWindow(QMainWindow):
         
     def getRace(self):
         """获取当前种族"""
-        if config.DEBUG_SHOW_ENEMY_INFO_SQUARE:
-            return 'protoss'
-        return self._race if hasattr(self, '_race') else ''
+        return self.enemy_recognizer.get_race()
 
     def getArmy(self):
         """获取当前军队"""
-        if config.DEBUG_SHOW_ENEMY_INFO_SQUARE:
-            return 'vanguard_of_aiur'
-        return self._army if hasattr(self, '_army') else ''
+        return self.enemy_recognizer.get_army()
 
     def setRace(self, race):
         """设置当前种族"""
+        self.enemy_recognizer.set_race(race)
+
+    def handle_screenshot_hotkey(self):
+        """处理截图快捷键"""
         if not config.DEBUG_SHOW_ENEMY_INFO_SQUARE:
-            self._race = race
+            return
+        
+        try:
+            # 使用已保存的矩形区域进行截图
+            successful_captures = 0
+            
+            for rect in self.rect_screenshots:
+                try:
+                    # 调用capture_screen_rect进行截图并保存
+                    save_path = image_util.capture_screen_rect(rect)
+                    if save_path:
+                        self.logger.info(f'成功保存截图到: {save_path}')
+                        successful_captures += 1
+                    else:
+                        self.logger.warning(f'截图保存失败: {rect.x()}, {rect.y()}, {rect.width()}, {rect.height()}')
+                except Exception as capture_error:
+                    self.logger.error(f'区域截图失败: {str(capture_error)}')
+                    self.logger.error(traceback.format_exc())
+            
+            if successful_captures == len(self.rect_screenshots):
+                self.logger.info('所有区域截图完成')
+            else:
+                self.logger.warning(f'部分区域截图失败: 成功{successful_captures}/{len(self.rect_screenshots)}')
+        except Exception as e:
+            self.logger.error(f'截图处理失败: {str(e)}')
+            self.logger.error(traceback.format_exc())
 
     def setArmy(self, army):
         """设置当前军队"""
-        if not config.DEBUG_SHOW_ENEMY_INFO_SQUARE:
-            self._army = army
+        self.enemy_recognizer.set_army(army)
 
     def init_ui(self):
         """初始化用户界面"""
@@ -674,93 +684,8 @@ class TimerWindow(QMainWindow):
     
     def init_tray(self):
         """初始化系统托盘"""
-        # 如果已存在托盘图标，先删除它
-        if hasattr(self, 'tray_icon') and self.tray_icon is not None:
-            self.tray_icon.hide()
-            self.tray_icon.deleteLater()
-            self.logger.info('已删除旧的托盘图标')
-
-        self.tray_icon = QSystemTrayIcon(self)
-        
-        # 修改图标路径获取方式
-        if getattr(sys, 'frozen', False):
-            # 如果是打包后的exe
-            base_path = os.path.dirname(sys.executable)
-            self.logger.info(f'准备修改tray，检测到exe环境：{base_path}')
-        else:
-            # 如果是开发环境
-            base_path = os.path.dirname(os.path.dirname(__file__))
-            self.logger.info(f'准备修改tray，检测到开发环境：{base_path}')
-            
-        icon_path = os.path.join(base_path, 'ico', 'fav.ico')
-        self.logger.info(f'加载托盘图标: {icon_path}')
-        
-        if not os.path.exists(icon_path):
-            self.logger.error(f'托盘图标文件不存在: {icon_path}')
-        else:
-            self.logger.info('找到托盘图标文件')
-            
-        self.tray_icon.setIcon(QIcon(icon_path))
-        
-        # 创建托盘菜单
-        tray_menu = QMenu()
-        show_action = QAction(self.get_text("show_action"), self)
-        quit_action = QAction(self.get_text("quit_action"), self)
-        
-        show_action.triggered.connect(self.show)
-        quit_action.triggered.connect(QApplication.instance().quit)
-        
-        # 添加语言设置菜单
-        language_menu = QMenu(self.get_text("language_menu"), self)
-        maps_dir = get_resources_dir('resources', 'maps')
-        for lang_dir in os.listdir(maps_dir):
-            if os.path.isdir(os.path.join(maps_dir, lang_dir)) and lang_dir not in ['.', '..']:
-                language_action = QAction(lang_dir, self)
-                # 为当前选中的语言添加标记
-                if lang_dir == config.current_language:
-                    language_action.setText(f"{lang_dir}✓")
-                language_action.triggered.connect(lambda checked, lang=lang_dir: self.on_language_changed(lang))
-                language_menu.addAction(language_action)
-        
-        tray_menu.addAction(show_action)
-        tray_menu.addMenu(language_menu)
-        tray_menu.addAction(quit_action)
-        
-        # 设置托盘菜单的位置
-        def show_context_menu(reason):
-            if reason == QSystemTrayIcon.Context:  # 右键点击
-                if sys.platform == 'win32':
-                    import win32gui
-                    try:
-                        # 获取鼠标位置
-                        cursor_pos = win32gui.GetCursorPos()
-                        
-                        # 调整菜单位置
-                        menu_x = cursor_pos[0]
-                        menu_y = cursor_pos[1] - tray_menu.sizeHint().height()
-                        
-                        # 确保菜单不会超出屏幕
-                        screen = QApplication.primaryScreen().geometry()
-                        if menu_y < 0:
-                            menu_y = cursor_pos[1]
-                        if menu_x + tray_menu.sizeHint().width() > screen.width():
-                            menu_x = screen.width() - tray_menu.sizeHint().width()
-                            
-                        tray_menu.exec_(QPoint(menu_x, menu_y))
-                    except Exception as e:
-                        self.logger.error(f'显示托盘菜单时出错: {str(e)}')
-                        # 如果出错，回退到默认位置
-                        tray_menu.exec_(QCursor.pos())
-                else:
-                    # 非Windows系统使用默认位置
-                    tray_menu.exec_(QCursor.pos())
-        
-        # 连接托盘图标的点击事件
-        self.tray_icon.activated.connect(show_context_menu)
-        
-        self.tray_icon.setContextMenu(tray_menu)
-        self.tray_icon.show()
-        self.logger.info('已创建新的托盘图标')
+        from tray_manager import TrayManager
+        self.tray_manager = TrayManager(self)
 
     def mousePressEvent(self, event):
         """鼠标按下事件，用于实现窗口拖动"""
@@ -1072,209 +997,12 @@ class TimerWindow(QMainWindow):
 
     def init_toast(self):
         """初始化Toast提示组件"""
-        # 创建Toast标签
-        self.toast_label = QLabel(self)
-        self.toast_label.setFont(QFont('Arial', config.TOAST_FONT_SIZE))
-        self.toast_label.setStyleSheet(
-            'QLabel {'
-            '   color: ' + config.TOAST_FONT_COLOR + ';'
-            '   padding: 10px;'
-            '   background-color: transparent;'
-            '   border: none;'
-            '}'
-        )
-        self.toast_label.setAttribute(Qt.WA_TranslucentBackground)
-        self.toast_label.setAlignment(Qt.AlignCenter)
-        self.toast_label.hide()
-        
-        self.toast_label.setAttribute(Qt.WA_TransparentForMouseEvents)
-        self.toast_label.setWindowFlags(
-            Qt.FramelessWindowHint |
-            Qt.WindowStaysOnTopHint |
-            Qt.Tool
-        )
-        
-        # 创建Toast定时器
-        self.toast_timer = QTimer(self)
-        self.toast_timer.timeout.connect(self.hide_toast)
-
-        # 创建Mutator Alert标签
-        self.mutator_alert_label = QLabel()
-        # 设置字体大小为普通toast的2/3
-        mutator_font_size = int(config.TOAST_FONT_SIZE * 2/3) # 强制设置成小一些
-        self.mutator_alert_label.setFont(QFont('Arial', mutator_font_size))
-        self.mutator_alert_label.setStyleSheet(
-            'QLabel {'
-            '   color: ' + config.MUTATOR_DEPLOYMENT_COLOR + ';'
-            '   padding: 10px;'
-            '   background-color: transparent;'
-            '   border: none;'
-            '}'
-        )
-        self.mutator_alert_label.setAttribute(Qt.WA_TranslucentBackground)
-        self.mutator_alert_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)
-        # 设置窗口标志
-        self.mutator_alert_label.setWindowFlags(
-            Qt.FramelessWindowHint |
-            Qt.WindowStaysOnTopHint |
-            Qt.Tool
-        )
-        self.mutator_alert_label.hide()
-        
-        # 创建Mutator Alert定时器
-        self.mutator_alert_timer = QTimer(self)
-        self.mutator_alert_timer.timeout.connect(self.hide_mutator_alert)
+        from toast_manager import ToastManager
+        self.toast_manager = ToastManager(self)
 
     def show_toast(self, message, duration=None, force_show=False):
         """显示Toast提示"""
-        # 检查游戏状态，非游戏中状态不显示提示
-        from mainfunctions import get_game_screen
-        if not force_show and (get_game_screen() != 'in_game' or not config.TOAST_ALLOWED):
-            self.logger.info('非游戏中状态或禁用toast，不显示Toast提示')
-            return
-        else:
-            self.logger.info('显示Toast提示')
-
-        if duration is None:
-            duration = config.TOAST_DURATION
-
-        # 创建一个水平布局来容纳文本和图标
-        container = QWidget()
-        layout = QHBoxLayout(container)
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(5)
-
-        # 解析消息内容
-        parts = message.split('\t')
-        self.logger.info(f'split 行数据: {len(parts)},{parts}')
-        display_text = parts[0] + ' ' + parts[1]
-        if len(parts) >= 3:
-            # 查找T标识的位置
-            troops_data = parts[2].split('|')
-            if troops_data and troops_data[0].startswith('T'):
-                # 截断文本到T标识处
-                display_text = display_text + ' ' + troops_data[0]
-
-        # 添加文本标签
-        text_label = QLabel(display_text)
-        text_label.setFont(QFont('Arial', config.TOAST_FONT_SIZE))
-        text_label.setStyleSheet(f'color: {config.TOAST_FONT_COLOR}; background-color: transparent;')
-        layout.addWidget(text_label)
-
-        # 解析第三列数据，获取部队图标
-        if len(parts) >= 3:
-            troops_data = parts[2].split('|')
-            self.logger.info(f'解析第三列数据: {parts[2]}')
-            if troops_data and troops_data[0].startswith('T'):
-                # 创建一个垂直布局来容纳两行图标
-                icons_container = QWidget()
-                icons_layout = QVBoxLayout(icons_container)
-                icons_layout.setContentsMargins(0, 0, 0, 0)
-                icons_layout.setSpacing(5)
-                layout.addWidget(icons_container)
-                
-                # 创建第一行布局用于显示Tx对应的兵种图标
-                tx_container = QWidget()
-                tx_layout = QHBoxLayout(tx_container)
-                tx_layout.setContentsMargins(0, 0, 0, 0)
-                tx_layout.setSpacing(2)
-                icons_layout.addWidget(tx_container)
-                
-                # 创建第二行布局用于显示hybrid兵种图标
-                hybrid_container = QWidget()
-                hybrid_layout = QHBoxLayout(hybrid_container)
-                hybrid_layout.setContentsMargins(0, 0, 0, 0)
-                hybrid_layout.setSpacing(2)
-                icons_layout.addWidget(hybrid_container)
-                try:
-                    # 获取种族和军队配置
-                    race = self.getRace()
-                    army = self.getArmy()
-                    self.logger.info(f'当前种族: {race}, 军队配置: {army}')
-                    if race and army:
-                        # 读取军队配置文件
-                        army_file = get_resources_dir('resources', 'troops', race, army)
-                        self.logger.info(f'读取军队配置文件: {army_file}')
-                        if os.path.exists(army_file):
-                            with open(army_file, 'r', encoding='utf-8') as f:
-                                for line in f:
-                                    line = line.strip()
-                                    if line:
-                                        army_parts = line.split()
-                                        if len(army_parts) >= 2 and army_parts[0] == troops_data[0][1:]:
-                                            # 获取对应的图标
-                                            icons = army_parts[1].split('|')
-                                            self.logger.info(f'找到匹配的部队配置: {line}, 图标: {icons}')
-                                            for icon in icons:
-                                                icon_path = get_resources_dir('ico', 'troops', race, f'{icon}.png')
-                                                self.logger.info(f'加载图标文件: {icon_path}')
-                                                if os.path.exists(icon_path):
-                                                    icon_label = QLabel()
-                                                    pixmap = QPixmap(icon_path)
-                                                    icon_label.setPixmap(pixmap.scaled(config.TROOP_ICON_SIZE, config.TROOP_ICON_SIZE, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-                                                    tx_layout.addWidget(icon_label)
-                                                else:
-                                                    self.logger.warning(f'图标文件不存在: {icon_path}')
-                        else:
-                            self.logger.warning(f'军队配置文件不存在: {army_file}')
-                    else:
-                        self.logger.warning('未获取到种族或军队配置')
-                except Exception as e:
-                    self.logger.error(f'解析部队图标失败: {str(e)}\n{traceback.format_exc()}')
-                
-                # 处理hybrid兵种图标
-                for troop_info in troops_data[1:]:
-                    if troop_info:
-                        troop_parts = troop_info.split('*')
-                        troop_name = troop_parts[0]
-                        troop_count = troop_parts[1] if len(troop_parts) > 1 else '1'
-                        
-                        # 创建水平布局来容纳图标和数量
-                        troop_container = QWidget()
-                        troop_layout = QHBoxLayout(troop_container)
-                        troop_layout.setContentsMargins(0, 0, 0, 0)
-                        troop_layout.setSpacing(2)
-                        
-                        # 加载hybrid兵种图标
-                        icon_path = get_resources_dir('ico', 'troops', 'hybrid', f'{troop_name}.jpg')
-                        if os.path.exists(icon_path):
-                            icon_label = QLabel()
-                            pixmap = QPixmap(icon_path)
-                            icon_label.setPixmap(pixmap.scaled(config.TROOP_ICON_SIZE, config.TROOP_ICON_SIZE, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-                            troop_layout.addWidget(icon_label)
-                            
-                            # 添加数量标签
-                            count_label = QLabel(f'*{troop_count}')
-                            count_label.setFont(QFont('Arial', config.TROOP_HYBRCONT_FONT_SIZE))
-                            count_label.setStyleSheet(f'color: {config.TROOP_HYBRID_ICON_COLOR}; background-color: transparent;')
-                            troop_layout.addWidget(count_label)
-                            
-                            hybrid_layout.addWidget(troop_container)
-                        else:
-                            self.logger.warning(f'Hybrid兵种图标不存在: {icon_path}')
-
-        # 设置容器大小并显示
-        container.adjustSize()
-        container.setStyleSheet('background-color: transparent;')
-        container.setAttribute(Qt.WA_TranslucentBackground)
-        container.setAttribute(Qt.WA_TransparentForMouseEvents)
-        container.setWindowFlags(
-            Qt.FramelessWindowHint |
-            Qt.WindowStaysOnTopHint |
-            Qt.Tool
-        )
-
-        # 移动到屏幕中央
-        current_screen = self.get_current_screen()
-        screen_geometry = current_screen.geometry()
-        x = screen_geometry.center().x() - container.width() // 2
-        y = int(self.height() * config.TOAST_POSITION)
-        container.move(x, y)
-
-        # 显示容器并启动定时器
-        self.toast_label = container
-        self.toast_label.show()
-        self.toast_timer.start(duration)
+        self.toast_manager.show_map_toast(message, duration, force_show)
 
     def show_mutator_alert(self, message, mutator_type='deployment'):
         """显示突变因子提醒"""
@@ -1431,11 +1159,17 @@ class TimerWindow(QMainWindow):
             # 解析快捷键配置
             map_shortcut = config.MAP_SHORTCUT.replace(' ', '').lower()
             lock_shortcut = config.LOCK_SHORTCUT.replace(' ', '').lower()
+            screenshot_shortcut = config.SCREENSHOT_SHORTCUT.replace(' ', '').lower()
+            artifact_shortcut = config.SHOW_ARTIFACT_SHORTCUT.replace(' ', '').lower()
             
             # 注册全局快捷键
             keyboard.add_hotkey(map_shortcut, self.handle_map_switch_hotkey)
             keyboard.add_hotkey(lock_shortcut, self.handle_lock_shortcut)
-            self.logger.info(f'成功注册全局快捷键: {config.MAP_SHORTCUT}, {config.LOCK_SHORTCUT}')
+            keyboard.add_hotkey(screenshot_shortcut, self.handle_screenshot_hotkey)
+        
+            self.toggle_artifact_signal.connect(self.handle_artifact_shortcut)
+            keyboard.add_hotkey(artifact_shortcut, self.toggle_artifact_signal.emit)
+            self.logger.info(f'成功注册全局快捷键: {config.MAP_SHORTCUT}, {config.LOCK_SHORTCUT}, {config.SCREENSHOT_SHORTCUT}')
             
         except Exception as e:
             self.logger.error(f'注册全局快捷键失败: {str(e)}')
@@ -1505,6 +1239,21 @@ class TimerWindow(QMainWindow):
         # 重新初始化系统托盘菜单以更新语言选择标记
         self.init_tray()
     
+    def handle_artifact_shortcut(self):
+        # 如果窗口可见，则销毁图片
+        if self.artifact_window.isVisible():
+            self.artifact_window.destroy_images()
+            self.artifact_window.hide()
+        else:
+            # 获取当前选择的地图名称并显示对应的神器图片
+            try:
+                current_map = self.combo_box.currentText()
+                if current_map:
+                    self.artifact_window.show_artifact(current_map, config.ARTIFACTS_IMG_OPACITY, config.ARTIFACTS_IMG_GRAY)
+            except Exception as e:
+                self.logger.error(f'draw artifacts layer failed: {str(e)}')
+                self.logger.error(traceback.format_exc())
+
     def handle_lock_shortcut(self):
         """处理锁定快捷键"""
         self.logger.info(f'检测到锁定快捷键组合: {config.LOCK_SHORTCUT}')
@@ -1715,12 +1464,6 @@ class TimerWindow(QMainWindow):
         except Exception as e:
             self.logger.error(f'检查突变因子提醒失败: {str(e)}')
             self.logger.error(traceback.format_exc())
-
-def main():
-    app = QApplication(sys.argv)
-    window = TimerWindow()
-    window.start_timer()
-    sys.exit(app.exec_())
-
+            
 if __name__ == '__main__':
     main()

@@ -1,236 +1,244 @@
+import win32gui
+import win32ui
+import win32con
+import win32api
+from PIL import Image
+from pynput import mouse
 import os
-import random
-import datetime
-from PyQt5.QtWidgets import QWidget, QApplication
-from PyQt5.QtCore import Qt, QRect
-from PyQt5.QtGui import QPainter, QPen, QColor, QScreen
-import fileutil
+from datetime import datetime
+import tkinter as tk
+from tkinter import ttk
+import ctypes
+from ctypes import windll
+from ctypes import c_int
 import config
-import cv2
-import numpy as np
-from PyQt5.QtGui import QImage
+import traceback
 
-class SquareOverlay(QWidget):
+from logging_util import get_logger, setup_logger
+logger = get_logger(__name__)
+        
+class ScreenshotTool:
     def __init__(self):
-        super().__init__()
-        self.square_rects = []
-        self.init_ui()
-
-    def init_ui(self):
-        # 设置窗口属性
-        self.setWindowFlags(
-            Qt.FramelessWindowHint |  # 无边框
-            Qt.WindowStaysOnTopHint |  # 置顶
-            Qt.Tool |  # 不在任务栏显示
-            Qt.X11BypassWindowManagerHint  # 绕过窗口管理器
-        )
-        self.setAttribute(Qt.WA_TranslucentBackground)  # 透明背景
-        self.setAttribute(Qt.WA_ShowWithoutActivating)  # 显示时不获取焦点
-
-    def draw_square(self, x, y, width=100, height=100):
-        """在指定坐标绘制一个红色边框的正方形
-
-        Args:
-            x: 正方形左上角的x坐标
-            y: 正方形左上角的y坐标
-
-        Returns:
-            QRect: 绘制的矩形对象
-        """
-        # 获取目标屏幕的位置
-        screens = QApplication.screens()
-        if not screens or config.GAME_SCREEN >= len(screens):
-            return None
+        # 设置DPI感知
+        try:
+            windll.user32.SetProcessDPIAware()
+        except AttributeError:
+            pass
         
-        screen = screens[config.GAME_SCREEN]
-        screen_geometry = screen.geometry()
-        
-        # 调整坐标到目标屏幕
-        screen_x = x + screen_geometry.x()
-        screen_y = y + screen_geometry.y()
-        
-        rect = QRect(screen_x, screen_y, width, height)
-        self.square_rects.append(rect)
-        # 计算所有正方形的边界区域
-        left = min(rect.left() for rect in self.square_rects)
-        top = min(rect.top() for rect in self.square_rects)
-        right = max(rect.right() for rect in self.square_rects)
-        bottom = max(rect.bottom() for rect in self.square_rects)
-        # 设置窗口大小为所有正方形的边界区域
-        self.setGeometry(left, top, right - left + 1, bottom - top + 1)
-        self.show()
-        self.update()
-        return rect
+        self.start_pos = None
+        self.end_pos = None
+        self.is_capturing = False
+        self.root = None
+        self.canvas = None
+        if hasattr(config, 'GAME_SCREEN_DPI'):
+            logger.warning(f"使用用户自定义dpi： {config.GAME_SCREEN_DPI}")
+            self.dpi = config.GAME_SCREEN_DPI/96
+        else:    
+            # 获取系统DPI缩放比例
+            screen_dc = win32gui.GetDC(0)
+            dpi = win32ui.GetDeviceCaps(screen_dc, win32con.LOGPIXELSX) / 96.0
+            logger.warning(f"使用自动获取（可能不准，在windows桌面设置查看一下）的系统dpi： {dpi}")
+            win32gui.ReleaseDC(0, screen_dc)
+            self.dpi = dpi
 
-    def clear_square(self, rect=None):
-        """清除指定的正方形或所有正方形
+    def capture_screen(self, start_pos, end_pos):
+        # 临时隐藏选择框
+        original_alpha = self.canvas.winfo_toplevel().attributes('-alpha')
+        self.canvas.winfo_toplevel().attributes('-alpha', 0)
+        self.root.update()
 
-        Args:
-            rect: 要清除的矩形对象，如果为None则清除所有矩形
-        """
-        if rect is None:
-            self.square_rects.clear()
-            self.hide()
+        # 获取所有显示器信息
+        monitors = win32api.EnumDisplayMonitors()
+        if not hasattr(config, 'GAME_SCREEN'):
+            config.GAME_SCREEN = 0
+            
+        if config.GAME_SCREEN >= len(monitors):
+            logger.info(f'警告：配置的屏幕序号{config.GAME_SCREEN}超出可用显示器数量，将使用主屏幕')
+            monitor_info = win32api.GetMonitorInfo(monitors[0][0])
         else:
-            self.square_rects.remove(rect)
-            if not self.square_rects:
-                self.hide()
-            else:
-                # 重新计算窗口大小
-                left = min(r.left() for r in self.square_rects)
-                top = min(r.top() for r in self.square_rects)
-                right = max(r.right() for r in self.square_rects)
-                bottom = max(r.bottom() for r in self.square_rects)
-                self.setGeometry(left, top, right - left + 1, bottom - top + 1)
-                self.update()
+            monitor_info = win32api.GetMonitorInfo(monitors[config.GAME_SCREEN][0])
 
-    def paintEvent(self, event):
-        if self.square_rects:
-            painter = QPainter(self)
-            painter.setRenderHint(QPainter.Antialiasing)
-            
-            # 设置画笔为红色，宽度为3像素
-            pen = QPen(QColor(255, 0, 0))
-            pen.setWidth(3)
-            pen.setStyle(Qt.SolidLine)
-            painter.setPen(pen)
-            
-            # 获取窗口左上角坐标
-            window_left = self.geometry().left()
-            window_top = self.geometry().top()
-            
-            # 绘制所有正方形边框
-            for rect in self.square_rects:
-                # 计算相对于窗口的坐标
-                x = rect.left() - window_left
-                y = rect.top() - window_top
-                painter.drawRect(x, y, rect.width()-1, rect.height()-1)
+        # 获取目标屏幕的分辨率和位置
+        monitor_rect = monitor_info['Monitor']
+        real_width = monitor_rect[2] - monitor_rect[0]
+        real_height = monitor_rect[3] - monitor_rect[1]
+        logger.info(f'目标屏幕分辨率: {real_width/self.dpi}x{real_height/self.dpi}')
+        logger.info(f'屏幕位置: ({monitor_rect[0]/self.dpi}, {monitor_rect[1]/self.dpi}, {monitor_rect[2]/self.dpi}, {monitor_rect[3]/self.dpi})')
 
-# 创建全局实例
-_square_overlay = None
-
-def get_square_overlay():
-    """获取或创建SquareOverlay实例"""
-    global _square_overlay
-    if _square_overlay is None:
-        _square_overlay = SquareOverlay()
-    return _square_overlay
-
-def draw_square(x, y,  width=100, height=100):
-    """在指定坐标绘制一个红色边框的正方形
-
-    Args:
-        x: 正方形左上角的x坐标
-        y: 正方形左上角的y坐标
-    Returns:
-        QRect: 绘制的矩形对象
-    """
-    overlay = get_square_overlay()
-    return overlay.draw_square(x, y, width, height)
-
-def clear_square(rect=None):
-    """清除指定的正方形或所有正方形
-
-    Args:
-        rect: 要清除的矩形对象，如果为None则清除所有矩形
-    """
-    if _square_overlay:
-        _square_overlay.clear_square(rect)
-
-def _generate_filename():
-    """生成唯一的文件名，格式为：年月日时分秒_4位随机数.jpg"""
-    now = datetime.datetime.now()
-    random_num = random.randint(1000, 9999)
-    return f"{now.strftime('%Y%m%d%H%M%S')}_{random_num}.jpg"
-
-def capture_screen_area(x, y, width, height, save2File=False):
-    """根据指定的坐标和大小截取屏幕区域
-
-    Args:
-        x: 截图区域左上角的x坐标
-        y: 截图区域左上角的y坐标
-        width: 截图区域的宽度
-        height: 截图区域的高度
-
-    Returns:
-        str: 保存的图片文件路径，如果保存失败则返回None
-    """
-    screen = QApplication.primaryScreen()
-    screen_geometry = screen.geometry()
-    
-    # 调整坐标到目标屏幕
-    screen_x = x 
-    screen_y = y 
-    
-    # 创建截图区域
-    capture_rect = QRect(screen_x, screen_y, width, height)
-    # 获取截图
-    screenshot = screen.grabWindow(0, screen_x, screen_y, width, height)
-    
-    # 获取保存路径
-    if save2File:
-        save_dir = fileutil.get_resources_dir('img', 'userdata')
-        if not save_dir:
-            return None
+        # 获取窗口位置，并根据DPI缩放调整坐标
+        logger.info(f'窗口位置(DPI调整前) - x: {self.root.winfo_x()}, y: {self.root.winfo_y()}')
+        window_x = int(self.root.winfo_x() /self.dpi)
+        window_y = int(self.root.winfo_y() / self.dpi)
+        logger.info(f'窗口位置(DPI调整后) - x: {window_x}, y: {window_y}')
         
-        # 确保目录存在
-        os.makedirs(save_dir, exist_ok=True)
+        # 将窗口相对坐标转换为屏幕绝对坐标
+        screen_start_x = int(window_x + start_pos[0]/self.dpi)
+        screen_start_y = int(window_y + start_pos[1]/self.dpi)
+        screen_end_x = int(window_x + end_pos[0]/self.dpi)
+        screen_end_y = int(window_y + end_pos[1]/self.dpi)
+        logger.info(f'截图区域(DPI调整后) - 起点: ({screen_start_x}, {screen_start_y}), 终点: ({screen_end_x}, {screen_end_y})')
         
-        # 生成文件路径
-        filename = _generate_filename()
-        save_path = os.path.join(save_dir, filename)
+        # 获取屏幕DC
+        hwin = win32gui.GetDesktopWindow()
         
-        # 保存截图
-        if screenshot.save(save_path, 'JPG'):
-            return save_path
-    return None
+        # 创建设备上下文和内存设备上下文
+        hwindc = win32gui.GetWindowDC(hwin)
+        srcdc = win32ui.CreateDCFromHandle(hwindc)
+        memdc = srcdc.CreateCompatibleDC()
+        
+        # 创建位图对象
+        bmp = win32ui.CreateBitmap()
+        bmp.CreateCompatibleBitmap(srcdc, real_width, real_height)
+        memdc.SelectObject(bmp)
+        
+        # 计算截图区域，使用转换后的屏幕坐标
+        x1, y1 = min(screen_start_x, screen_end_x), min(screen_start_y, screen_end_y)
+        x2, y2 = max(screen_start_x, screen_end_x), max(screen_start_y, screen_end_y)
+        width = x2 - x1
+        height = y2 - y1
 
-def capture_screen_rect(rect, save2File=False):
-    """根据QRect对象截取屏幕区域
+        # 复制屏幕到内存设备上下文，使用正确的源坐标
+        memdc.BitBlt((0, 0), (real_width, real_height), srcdc, (int(monitor_rect[0]/self.dpi), int(monitor_rect[1]/self.dpi)), win32con.SRCCOPY)
+        
+        try:
+            # 保存位图
+            bmpinfo = bmp.GetInfo()
+            bmpstr = bmp.GetBitmapBits(True)
+            im = Image.frombuffer(
+                'RGB',
+                (bmpinfo['bmWidth'], bmpinfo['bmHeight']),
+                bmpstr, 'raw', 'BGRX', 0, 1)
+            logger.info(f'截图坐标: {x1},{x2},{y1},{y2}')
+            if x1<0:
+                x1=real_width+x1
+            if x2>real_width:
+                x2=real_width+x2
+            if  y1<0:
+                y1=real_height+y1
+            if y2>real_height:
+                y2=real_height+y2
 
-    Args:
-        rect: QRect对象，表示要截取的区域
+            im = im.crop((x1, y1, x2, y2))
+            
+            # im = im.crop((-500, 0, 3000, 2000))
+            # 创建screenshots文件夹（如果不存在）
+            if not os.path.exists('screenshots'):
+                os.makedirs('screenshots')
+            
+            # 生成文件名并保存
+            filename = f'screenshots/screenshot_{datetime.now().strftime("%Y%m%d_%H%M%S")}_{real_width}x{real_height}_{screen_start_x}_{screen_start_y}_{screen_end_x}_{screen_end_y}.png'
+            im.save(filename)
+            logger.warning(f'截图已保存: {filename}')
+            
+            # 清理资源
+            memdc.DeleteDC()
+            win32gui.DeleteObject(bmp.GetHandle())
+            win32gui.ReleaseDC(hwin, hwindc)
+        except Exception as capture_error:
+            logger.error(f'区域截图失败: {str(capture_error)}')
+            logger.error(traceback.format_exc())
 
-    Returns:
-        str: 保存的图片文件路径，如果保存失败则返回None
-    """
-    return capture_screen_area(rect.x(), rect.y(), rect.width(), rect.height(), save2File)
+        # 恢复选择框显示
+        self.canvas.winfo_toplevel().attributes('-alpha', original_alpha)
+        self.root.update()
 
+    def on_click(self, x, y, button, pressed):
+        if button == mouse.Button.left:
+            if pressed:
+                self.start_pos = (x, y)
+                self.is_capturing = True
+                logger.info(f'开始位置: {self.start_pos}')
+            elif self.is_capturing:
+                self.end_pos = (x, y)
+                logger.info(f'结束位置: {self.end_pos}')
+                self.capture_screen(self.start_pos, self.end_pos)
+                self.is_capturing = False
 
-def compare_images(screenshot, local_image_path):
-    """计算两个图片的相似度
+    def create_overlay(self):
+        # 获取所有显示器信息
+        monitors = win32api.EnumDisplayMonitors()
+        if not hasattr(config, 'GAME_SCREEN'):
+            config.GAME_SCREEN = 0
+            
+        if config.GAME_SCREEN >= len(monitors):
+            logger.warning(f'警告：配置的屏幕序号{config.GAME_SCREEN}超出可用显示器数量，将使用主屏幕')
+            monitor_info = win32api.GetMonitorInfo(monitors[0][0])
+        else:
+            monitor_info = win32api.GetMonitorInfo(monitors[config.GAME_SCREEN][0])
 
-    Args:
-        screenshot: QImage对象，通过screen.grabWindow获取的截图数据
-        local_image_path: str，本地图片文件的路径
+        # 获取目标屏幕的位置
+        monitor_rect = monitor_info['Monitor']
+        screen_width = monitor_rect[2] - monitor_rect[0]
+        screen_height = monitor_rect[3] - monitor_rect[1]
 
-    Returns:
-        float: 相似度值，范围在0到1之间，1表示完全相同，0表示完全不同
-    """
-    # 将QImage转换为OpenCV格式
-    width = screenshot.width()
-    height = screenshot.height()
-    ptr = screenshot.bits()
-    ptr.setsize(height * width * 4)
-    arr = np.frombuffer(ptr, np.uint8).reshape((height, width, 4))
-    img1 = cv2.cvtColor(arr, cv2.COLOR_BGRA2BGR)
+        self.root = tk.Tk()
+        self.root.overrideredirect(True)  # 移除窗口装饰
+        self.root.attributes('-alpha', 0.3, '-topmost', True)
+        self.root.configure(bg='gray')
+        
+        # 设置窗口大小和位置
+        self.root.geometry(f'{screen_width}x{screen_height}+{monitor_rect[0]}+{monitor_rect[1]}')
+        
+        self.canvas = tk.Canvas(self.root, highlightthickness=0)
+        self.canvas.pack(fill='both', expand=True)
+        self.canvas.configure(bg='gray')
+        
+        self.canvas.bind('<Button-1>', self.on_mouse_down)
+        self.canvas.bind('<B1-Motion>', self.on_mouse_move)
+        self.canvas.bind('<ButtonRelease-1>', self.on_mouse_up)
+        # 将ESC键绑定从canvas移到root窗口
+        self.root.bind('<Escape>', self.on_escape)
+        self.root.focus_force()
 
-    # 读取本地图片
-    img2 = cv2.imread(local_image_path)
-    if img2 is None:
-        return 0.0
+    def on_escape(self, event):
+        # 清理资源并退出程序
+        if self.root:
+            self.root.destroy()
+            self.root.quit()
 
-    # 将两张图片调整为相同大小
-    img2 = cv2.resize(img2, (width, height))
+    def on_mouse_down(self, event):
+        self.start_pos = (event.x, event.y)
+        self.is_capturing = True
+        logger.info(f'鼠标按下 - 原始坐标: ({event.x}, {event.y})，去掉dpi后实际屏幕坐标：({event.x/self.dpi}, {event.y/self.dpi})')
 
-    # 计算直方图
-    hist1 = cv2.calcHist([img1], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256])
-    hist2 = cv2.calcHist([img2], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256])
+    def on_mouse_move(self, event):
+        if self.is_capturing:
+            # 删除之前的临时矩形
+            self.canvas.delete('temp_rect')
+            # 创建新的临时矩形
+            self.canvas.create_rectangle(
+                self.start_pos[0], self.start_pos[1],
+                event.x, event.y,
+                outline='red', width=2, tags='temp_rect'
+            )
 
-    # 归一化直方图
-    cv2.normalize(hist1, hist1)
-    cv2.normalize(hist2, hist2)
+    def on_mouse_up(self, event):
+        if self.is_capturing:
+            self.end_pos = (event.x, event.y)
+            logger.info(f'鼠标释放 - 原始坐标: ({event.x}, {event.y})，去掉dpi后实际屏幕坐标：({event.x/self.dpi}, {event.y/self.dpi})')
+            logger.info(f'窗口位置 - x: {self.root.winfo_x()}, y: {self.root.winfo_y()}')
+            # 创建一个永久性的矩形，使用时间戳作为唯一标签
+            rect_tag = f'rect_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+            self.canvas.create_rectangle(
+                self.start_pos[0], self.start_pos[1],
+                event.x, event.y,
+                outline='red', width=2, tags=rect_tag
+            )
+            self.capture_screen(self.start_pos, self.end_pos)
+            self.is_capturing = False
+            # 不再调用withdraw和quit，保持窗口显示
+            # 保持矩形框显示，不删除
+            self.is_capturing = False
 
-    # 计算相似度
-    similarity = cv2.compareHist(hist1, hist2, cv2.HISTCMP_CORREL)
-    return max(0.0, min(1.0, (similarity + 1) / 2))
+    def start(self):
+        logger.info('截图工具已启动，请按住鼠标左键选择区域...')
+        self.create_overlay()
+        self.root.mainloop()
+
+def draw_square(x1, y1, w1, h1):
+    return
+
+if __name__ == '__main__':
+    setup_logger()
+    tool = ScreenshotTool()
+    tool.start()
