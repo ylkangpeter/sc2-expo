@@ -85,6 +85,17 @@ def build_exe():
         "--onefile "
         "--clean "
         "--add-data=\"img;img\" "
+        "--upx-dir=upx-4.2.1-win64 "
+        "--exclude-module=matplotlib "
+        "--exclude-module=notebook "
+        "--exclude-module=scipy "
+        "--exclude-module=pandas "
+        "--exclude-module=PyQt5.QtNetwork "
+        "--exclude-module=PyQt5.QtWebEngine "
+        "--exclude-module=PyQt5.QtWebEngineCore "
+        "--exclude-module=PyQt5.QtWebEngineWidgets "
+        "--exclude-module=PyQt5.QtSql "
+        "--exclude-module=PyQt5.QtXml "
         "src/main.py"
     )
     
