@@ -2,6 +2,7 @@ import os
 import sys
 import shutil
 import zipfile
+import argparse
 from datetime import datetime
 
 def clean_build_folders():
@@ -68,7 +69,7 @@ def create_zip():
     print(f"\n压缩包创建完成: {zip_file}")
 
 
-def build_exe():
+def build_exe(use_upx=False):
     """使用PyInstaller打包应用"""
     # 确保当前目录是项目根目录
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -85,7 +86,7 @@ def build_exe():
         "--onefile "
         "--clean "
         "--add-data=\"img;img\" "
-        "--upx-dir=upx-4.2.1-win64 "
+        f"{'--upx-dir=upx-4.2.1-win64 ' if use_upx else ''}"
         "--exclude-module=matplotlib "
         "--exclude-module=notebook "
         "--exclude-module=scipy "
@@ -149,6 +150,12 @@ def build_exe():
         print("请检查错误信息并修复问题")
 
 def main():
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description='构建SC2 Timer可执行文件')
+    parser.add_argument('--upx', type=int, choices=[0, 1], default=0,
+                        help='是否使用UPX压缩（0：不压缩，1：压缩）')
+    args = parser.parse_args()
+
     # 检查是否已安装PyInstaller
     try:
         import PyInstaller
@@ -159,7 +166,7 @@ def main():
         print("PyInstaller安装完成")
     
     # 执行构建
-    build_exe()
+    build_exe(use_upx=bool(args.upx))
 
 if __name__ == "__main__":
     main()
