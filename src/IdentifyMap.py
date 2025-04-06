@@ -37,7 +37,7 @@ map_checks = {
         },
         'total_players': 7
     },
-    '天锁': {
+    '天界封锁': {
         'check': {
             2: {
                 "Amon's Forces", 'Amons Streitkräfte', 'Forze di Amon', 'Forças de Amon', 'Fuerzas de Amon', 'Fuerzas de Amón', 'Troupes d’Amon',
