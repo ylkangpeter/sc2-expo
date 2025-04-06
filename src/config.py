@@ -36,11 +36,11 @@ MAIN_WINDOW_WIDTH = 167  # 主窗口宽度 / Main window width
 # 表格字体大小
 TABLE_FONT_SIZE = 12  # 表格字体大小 / Table font size
 TABLE_HEIGHT = 185 # 表格高度
-TABLE_FONT_COLOR = 'rgb(255, 255, 255)'  # 表格字体颜色 / Table font color
-
+TABLE_NEXT_FONT_COLOR = [0, 255, 128]  # 表格下一个事件字体颜色 绿色/ Table font color
+TABLE_NEXT_FONT_BG_COLOR = [0, 255, 128, 30] # 表格下一个事件背景颜色，最后一个值是透明度
 
 # 时间提醒配置
-TIME_ALERT_SECONDS = 60  # 提前提醒时间（秒）/ Time before alert (in seconds)
+TIME_ALERT_SECONDS = 30  # 提前提醒时间（秒）/ Time before alert (in seconds)
 
 # 突变因子提醒配置
 MUTATION_FACTOR_ALERT_SECONDS = 30  # 突变因子提前提醒时间（秒）/ Mutation factor alert time (in seconds)

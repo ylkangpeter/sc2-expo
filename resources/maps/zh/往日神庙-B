@@ -1,28 +1,28 @@
-3:00	红点-陆混合体	T1
-3:15	播报红点
-4:15	红点-左下	T2
+3:00	红点-空混合体	T1
+3:10	播报红点
+4:10	红点-左下	T2
 6:00	红点-左下	T2|hybriddestroyer
 6:45	红点-左下	T2
 7:30	红点-左下	T2
 8:15	虚空撕裂者-左下 
-9:00	红点-左上&右下	T3
-10:00	红点-左上&右下	T4|hybriddestroyer*2
-11:00	红点-左上&右下	T4
+9:00	红点-左上 & 右下	T3
+10:00	红点-左上 & 右下	T4|hybriddestroyer*2
+11:00	红点-左上 & 右下	T4
 12:00	红点-左下	T3
 12:30	红点-左下	T4|hybriddestroyer*3
-13:15	红点-左下	T5
+13:35	红点-右下	T5
 13:45	虚空撕裂者-右下
-15:00	红点-右上	T3|hybridnemesis
-15:20	红点-右上	T4|hybridnemesis
-16:10	空投-上方	T2
-16:40	空投-上方	T2
-16:55	虚空撕裂者-左上
+15:00	空投-上方	T2|hybridnemesis
+15:30	空投-上方	T3|hybridnemesis
+15:45	虚空撕裂者-左上
+16:35	红点-右上	T3
+16:55	红点-右上	T4
 18:00	红点-左上 或 左下	T5|hybridnemesis|hybriddestroyer*3|hybridbehemoth
 18:15	红点-右下 或 左下	T3|hybridnemesis|hybriddestroyer*3|hybridbehemoth
 19:15	红点-右上	T4
-20:00	红点-左下	T5
-20:15	空投-下方，多波	T4
-22:00	红点-左下	T6
+20:00	虚空撕裂者 & 红点-左下	T4
+20:20	红点-右上	T3
+20:40	红点-右上	T2
 22:30	两侧撕裂者 + 红点	T6
 23:30	红点-左上	T5|hybridnemesis*2|hybriddestroyer*4|hybridbehemoth*2
 23:40	红点-右下	T3|hybridnemesis*2|hybriddestroyer*3|hybridbehemoth*2
