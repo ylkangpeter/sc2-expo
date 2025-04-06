@@ -174,7 +174,7 @@ class ToastManager:
                         else:
                             self.logger.warning(f'军队配置文件不存在: {army_file}')
                     else:
-                        self.logger.warning('未获取到种族或军队配置')
+                        self.logger.info('未获取到种族或军队配置')
                 except Exception as e:
                     self.logger.error(f'解析部队图标失败: {str(e)}\n{traceback.format_exc()}')
                 

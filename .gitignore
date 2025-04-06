@@ -31,3 +31,4 @@ Desktop.ini
 # Project specific
 ext-exe/obj/
 ext-exe/bin/
+src/monkey.js
