@@ -52,11 +52,6 @@ class TimerWindow(QMainWindow):
             base_dir = os.path.dirname(sys.executable)  # exe 所在目录
         else:
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # 源码所在目录
-        
-        # 初始化敌方单位识别器
-        from enemy_recognizer import EnemyRecognizer
-        self.enemy_recognizer = EnemyRecognizer()
-
 
         # 初始化日志记录器
         from logging_util import get_logger
@@ -165,18 +160,10 @@ class TimerWindow(QMainWindow):
         super().moveEvent(event)
         if hasattr(self, 'control_window'):
             self.update_control_window_position()
-        
-    def getRace(self):
-        """获取当前种族"""
-        return self.enemy_recognizer.get_race()
 
     def getArmy(self):
         """获取当前军队"""
-        return self.enemy_recognizer.get_army()
-
-    def setRace(self, race):
-        """设置当前种族"""
-        self.enemy_recognizer.set_race(race)
+        # return self.enemy_recognizer.get_army()
 
     def handle_screenshot_hotkey(self):
         """处理截图快捷键"""
@@ -207,10 +194,6 @@ class TimerWindow(QMainWindow):
         except Exception as e:
             self.logger.error(f'截图处理失败: {str(e)}')
             self.logger.error(traceback.format_exc())
-
-    def setArmy(self, army):
-        """设置当前军队"""
-        self.enemy_recognizer.set_army(army)
 
     def init_ui(self):
         """初始化用户界面"""
