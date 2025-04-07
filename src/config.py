@@ -86,9 +86,10 @@ GAME_SCREEN_DPI = 96
 # 192 DPI	200%	4K 显示器常用
 # 288 DPI	300%	8K 显示器可能使用
 
-GAME_ICON_POS_AMON_RACE = [45, 300, 36, 36] # [x_from_right, y_from_bottom, width, height] 
-GAME_ICON_POS_AMON_TROOPS = [330, 463, 320, 145] # [x_from_right, y_from_bottom, width, height
-GAME_ICON_POS_MALFUNCTION_PROBE = [10, 200, 300, 30] # [x_from_left, y_from_top, width, height] 
+GAME_ICON_POS_AMON_RACE = [45, 300, 36, 36] #  
+GAME_ICON_POS_AMON_TROOPS = [800,500,1920,1080] # 
+GAME_ICON_POS_SHOW = True 
+GAME_ICON_POS_SHOW_RELOAD_INTERVAL = 5 # 秒 
 
 TROOP_ICON_SIZE = 50
 TROOP_HYBRID_ICON_COLOR = 'rgb(0, 255, 128)'

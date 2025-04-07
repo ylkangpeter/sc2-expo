@@ -12,7 +12,9 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QGuiApplication
 from qt_gui import TimerWindow
 import logging_util
-
+import image_util
+import config
+import show_fence
 
 def main():
     logging_util.setup_logger()
@@ -31,6 +33,9 @@ def main():
     )
 
     timer = TimerWindow()
+    
+    #
+    show_fence.show_square()
     sys.exit(app.exec_())
 
 
