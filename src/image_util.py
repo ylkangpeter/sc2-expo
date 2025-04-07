@@ -46,6 +46,8 @@ class ImageCache:
             os.makedirs(troops_dir)
             logger.warning(f'创建troops目录: {troops_dir}')
             return
+        
+        logger.info(f'开始扫描troops目录: {troops_dir}')
             
         current_files = set(f for f in list_files(troops_dir) if f.lower().endswith('.png'))
         cached_files = set(os.path.basename(p) for p in self.cache.keys())
@@ -86,7 +88,7 @@ class ImageCache:
             except Exception as e:
                 logger.error(f'比较图片时发生错误: {str(e)}')
                 continue
-                
+        best_match = os.path.splitext(os.path.basename(best_match))[0] 
         return best_match, max_score
         
     def compare_images(self, image_stream):

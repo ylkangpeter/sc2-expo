@@ -18,6 +18,8 @@ import win32ui
 import win32con
 from image_util import ScreenshotTool
 import image_util
+import show_fence
+import logging_util
 
 def run_test_cases():
     # 创建ScreenshotTool实例
@@ -62,8 +64,16 @@ def print_all_monitors_info():
         print(f"  宽度: {monitor_rect[2] - monitor_rect[0]}")
         print(f"  高度: {monitor_rect[3] - monitor_rect[1]}")
         print("-" * 40)
+
+def run_image_capture():
+    # show_fence.show_square();
+    # input('按回车键继续...')
+    show_fence.detect_troop()
+    input('按回车键继续...')
     
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    run_test_cases()
+    logging_util.setup_logger()
+    # run_test_cases()
+    run_image_capture()
         

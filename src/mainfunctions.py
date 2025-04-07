@@ -8,6 +8,7 @@ from IdentifyMap import identify_map
 import config
 from debug_utils import get_mock_data, reset_mock, get_mock_screen_data
 from logging_util import get_logger
+import show_fence
 
 logger = get_logger(__name__)        
 
@@ -20,6 +21,8 @@ current_game_id = None  # 添加新的全局变量用于标识当前游戏
 
 # 创建session用于HTTP请求
 session = requests.Session()
+
+troop = None
 
 def check_for_new_game(progress_callback: QtCore.pyqtSignal) -> None:
     global most_recent_playerdata, current_game_id
@@ -133,6 +136,17 @@ def check_for_new_game(progress_callback: QtCore.pyqtSignal) -> None:
                 
                 except Exception:
                     logger.error(f'地图识别出错: {traceback.format_exc()}')
+                
+                troop = None
+                def troop_detection_callback(result):
+                    if result['success']:
+                        logger.info(f"检测到部队: {result['match']}, 相似度: {result['similarity']}")
+                        troop = result['match']
+                    else:
+                        logger.info(f"部队检测失败: {result['reason']}")
+                        troop = None
+                
+                show_fence.detect_troop(troop_detection_callback)
             
         except requests.exceptions.ConnectionError:
             logger.debug('SC2请求失败。游戏未运行。')
