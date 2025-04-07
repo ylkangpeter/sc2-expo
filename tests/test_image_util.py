@@ -1,6 +1,7 @@
 import sys
 import time
 import os
+import io
 from PyQt5.QtWidgets import QApplication
 
 from PyQt5.QtCore import QRect, Qt, QTimer
@@ -15,39 +16,35 @@ import win32con
 import win32gui
 import win32ui
 import win32con
+from image_util import ScreenshotTool
+import image_util
 
 def run_test_cases():
-    # """测试绘制多个矩形并截图"""
-    # test_cases = [(100, 100, 200, 150), (300, 200, 250, 200), (500, 400, 180, 120)]
-
-    # def process_next(index):
-    #     if index >= len(test_cases):
-    #         print("测试完成")
-    #         return
-
-    #     x, y, width, height = test_cases[index]
-    #     rect = draw_square(x, y, width, height)
-    #     print(f"绘制正方形: 位置({x}, {y}), 大小({width}, {height})")
-
-    #     QTimer.singleShot(1500, lambda: save_and_continue(rect, index))
-
-    def save_and_continue(rect, index):
-        """截图当前矩形，并处理下一个"""
-        print(f"截图矩形: {rect}")
-        save_path = capture_screen_rect(rect)
-        if save_path:
-            print(f"截图已保存到: {save_path}")
-        else:
-            print("截图保存失败")
-
-        # 继续下一个测试用例
-        process_next(index + 1)
-
-    # 开始处理第一个用例
-    process_next(0)
-
+    # 创建ScreenshotTool实例
+    screenshot_tool = ScreenshotTool()
+    # 获取截图并转换为OpenCV格式
+    pil_image = screenshot_tool.capture_screen_core([17,438],[134,763], False)
+    if pil_image:
+        print("截图成功")
+        # 创建ImageCache实例
+        image_cache = image_util.ImageCache()
+        # 将PIL图像转换为字节流
+        img_byte_arr = io.BytesIO()
+        pil_image.save(img_byte_arr, format='PNG')
+        img_byte_arr = img_byte_arr.getvalue()
+        # 调用compare_images方法进行图像比对
+        best_match, similarity = image_cache.compare_images(img_byte_arr)
+        print(f"最佳匹配: {best_match}, 相似度: {similarity}")
+    else:
+        print("截图失败")
+    thread = ScreenshotTool.draw_square(1800,500,1920,1080,"test");
+    # 等待用户输入后继续
+    input('按回车键继续...')
+    thread.destroy()
+    input('按回车键继续...')
+        
 def print_all_monitors_info():
-   # 获取所有显示器信息
+    # 获取所有显示器信息
     monitors = win32api.EnumDisplayMonitors()
     
     # 遍历所有显示器并打印信息
@@ -68,5 +65,5 @@ def print_all_monitors_info():
     
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    print_all_monitors_info()
+    run_test_cases()
         
