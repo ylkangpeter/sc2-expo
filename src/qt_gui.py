@@ -161,10 +161,6 @@ class TimerWindow(QMainWindow):
         if hasattr(self, 'control_window'):
             self.update_control_window_position()
 
-    def getArmy(self):
-        """获取当前军队"""
-        # return self.enemy_recognizer.get_army()
-
     def handle_screenshot_hotkey(self):
         """处理截图快捷键"""
         if not config.DEBUG_SHOW_ENEMY_INFO_SQUARE:

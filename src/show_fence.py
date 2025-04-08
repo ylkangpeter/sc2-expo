@@ -30,7 +30,7 @@ def show_square():
 
 def detect_troop(callback=None):
     if not config.DEBUG_SHOW_ENEMY_INFO_SQUARE:
-        return
+        return  {'success': False, 'reason': 'not enabled'}
     # 创建ScreenshotTool实例
     screenshot_tool = image_util.ScreenshotTool()
     # 创建ImageCache实例

@@ -24,6 +24,9 @@ session = requests.Session()
 
 troop = None
 
+def get_troop_from_game():
+    return troop
+
 def check_for_new_game(progress_callback: QtCore.pyqtSignal) -> None:
     global most_recent_playerdata, current_game_id
     

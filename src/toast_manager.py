@@ -5,15 +5,18 @@ import os
 import traceback
 import config
 from fileutil import get_resources_dir
-from mainfunctions import get_game_screen
+from mainfunctions import get_game_screen, get_troop_from_game
+from troop_util import TroopLoader
 
 class ToastManager:
+    
     def __init__(self, parent_window):
         self.parent = parent_window
         self.logger = parent_window.logger
         self.init_toast()
 
     def init_toast(self):
+        self.troop_loader = TroopLoader()
         """初始化Toast提示组件"""
         # 创建Toast标签
         self.toast_label = QLabel(self.parent)
@@ -144,8 +147,13 @@ class ToastManager:
                 icons_layout.addWidget(hybrid_container)
                 try:
                     # 获取种族和军队配置
-                    race = self.parent.getRace()
-                    army = self.parent.getArmy()
+                    
+                    army = get_troop_from_game()
+                    if army is None:
+                        return
+                    
+                    race = self.troop_loader.get_army(army)
+                    
                     self.logger.info(f'当前种族: {race}, 军队配置: {army}')
                     if race and army:
                         # 读取军队配置文件
