@@ -1,21 +1,17 @@
 @echo off
-REM 设置命令行使用 UTF-8 编码
 chcp 65001
+setlocal enabledelayedexpansion
 
-REM 打印日志：开始脚本执行
 echo -------------------------------
 echo 开始脚本执行...
 echo -------------------------------
 
-REM 获取当前登录用户
 set USERNAME=%USERNAME%
 echo 当前登录用户: %USERNAME%
 
-REM 设置目标路径（加上引号处理空格）
 set TARGET_DIR=C:\Users\%USERNAME%\Documents\StarCraft II\Accounts
 echo 目标路径: "%TARGET_DIR%"
 
-REM 获取最新修改的文件夹
 echo 正在查找最新修改的文件夹...
 if not exist "%TARGET_DIR%" (
     echo 错误：目标路径不存在！
@@ -32,13 +28,12 @@ echo 错误：未找到任何文件夹！
 goto :error
 
 :found
-REM 使用时间戳作为文件名
-set FILENAME=快捷施法_%TIME::=%
-REM 移除文件名中的小数点
-set FILENAME=%FILENAME:.=%
+set FILENAME=快捷施法_%TIME::=%  
+set FILENAME=%FILENAME:.=%  
+set FILENAME=%FILENAME: =%  
+set FILENAME=!FILENAME: =! 
 echo 生成的文件名: %FILENAME%.txt
 
-REM 打印日志：开始复制文件（加上引号处理空格）
 echo 正在复制文件...
 copy "快捷施法设置.txt" "C:\Users\%USERNAME%\Documents\StarCraft II\Accounts\%LATEST_FOLDER%\Hotkeys\%FILENAME%.SC2Hotkeys"
 if %errorlevel% == 0 (
@@ -48,11 +43,22 @@ if %errorlevel% == 0 (
     goto :error
 )
 
-REM 打印日志：脚本执行完毕
 echo -------------------------------
 echo 脚本执行完毕。
 echo -------------------------------
-pause
+
+echo 请选择操作
+echo 1-打开开目录查看快捷施法配置
+echo 2-退出程序
+
+set /p userChoice="请输入选项(1-2): "
+
+if "%userChoice%"=="2" goto :eof
+if "%userChoice%"=="1" (
+    "C:\Windows\explorer.exe" "C:\Users\%USERNAME%\Documents\StarCraft II\Accounts\%LATEST_FOLDER%\Hotkeys"
+    goto :eof
+)
+
 goto :eof
 
 :error

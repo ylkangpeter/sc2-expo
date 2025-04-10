@@ -68,6 +68,15 @@ def create_zip(separate_libs=False):
         if os.path.exists(readme_path):
             print(f"添加文件: 说明.txt")
             zipf.write(readme_path, '说明.txt')
+        
+        # 添加scripts目录下的文件
+        for item in os.listdir('scripts'):
+            src_path = os.path.join('scripts', item)
+            if os.path.isfile(src_path):
+                dst_path = os.path.join(src_dir, item)
+                if os.path.exists(dst_path):
+                    print(f"添加文件: {item}")
+                    zipf.write(dst_path, item)
     
     print(f"\n压缩包创建完成: {zip_file}")
 
@@ -90,6 +99,7 @@ def build_exe(use_upx=False, separate_libs=False):
         f"{'--onedir ' if separate_libs else '--onefile '}"
         "--clean "
         "--add-data=\"img;img\" "
+        "--add-data=\"scripts/*;.\" "
         f"{'--upx-dir=upx-4.2.1-win64 ' if use_upx else ''}"
         "--exclude-module=matplotlib "
         "--exclude-module=notebook "
@@ -149,6 +159,15 @@ def build_exe(use_upx=False, separate_libs=False):
         # 复制说明.txt
         print("复制说明.txt...")
         shutil.copy2('说明.txt', os.path.join(target_dir, '说明.txt'))
+        
+        # 复制scripts目录下的文件到根目录
+        print("复制scripts目录下的文件...")
+        if os.path.exists('scripts'):
+            for item in os.listdir('scripts'):
+                src_path = os.path.join('scripts', item)
+                dst_path = os.path.join(target_dir, item)
+                if os.path.isfile(src_path):
+                    shutil.copy2(src_path, dst_path)
         
         # 创建zip压缩包
         create_zip(separate_libs)
