@@ -5,7 +5,10 @@ Git: https://github.com/ylkangpeter/sc2-expo
 
 <a name="chinese"></a>
 ## 项目简介
-SC2 Expo 是一个星际争霸2游戏辅助工具，用于识别游戏地图并提供定时提醒功能。 地图识别部分代码源自 https://github.com/FluffyMaguro/SC2_Coop_Overlay
+SC2 Expo 是一个星际争霸2游戏辅助工具，主要功能包括：
+- 游戏地图识别和定时提醒（地图识别部分代码源自 https://github.com/FluffyMaguro/SC2_Coop_Overlay）
+- 游戏画面截图和部队识别功能
+- 支持自定义提醒和快捷键设置
 
 ## 环境要求
 - Python 3.7 或更高版本
@@ -25,6 +28,18 @@ pip install -r requirements.txt
 ## 启动方式
 双击 `start.vbs` 文件即可启动程序。
 
+## 打包说明
+### 使用PyInstaller打包（build_exe.py）
+```bash
+# 默认打包（单文件模式）
+python build_exe.py
+
+# 分离依赖库模式打包（推荐，启动更快）
+python build_exe.py --separate-libs
+
+# 使用UPX压缩（可选）
+python build_exe.py --use-upx
+```
 ## 配置说明
 在 `src/config.py` 文件中可以修改以下配置项：
 在 resource目录下编辑文件内容，来做具体的提醒，红点相关资料参考 https://bbs.nga.cn/read.php?tid=17265336&rand=787
@@ -65,7 +80,10 @@ pip install -r requirements.txt
 # SC2 Expo
 
 ## Project Introduction
-SC2 Expo is a StarCraft 2 game assistant tool that identifies game maps and provides timing reminders. The map identification code is sourced from https://github.com/FluffyMaguro/SC2_Coop_Overlay
+SC2 Expo is a StarCraft 2 game assistant tool with the following features:
+- Game map identification and timing reminders (map identification code sourced from https://github.com/FluffyMaguro/SC2_Coop_Overlay)
+- Game screenshot capture and troop identification
+- Customizable reminders and hotkey settings
 
 ## Requirements
 - Python 3.7 or higher
@@ -84,6 +102,19 @@ pip install -r requirements.txt
 
 ## Launch
 Double-click the `start.vbs` file to start the program.
+
+## Build Instructions
+### Using PyInstaller (build_exe.py)
+```bash
+# Default build (single file mode)
+python build_exe.py
+
+# Separate libraries mode (recommended, faster startup)
+python build_exe.py --separate-libs
+
+# Use UPX compression (optional)
+python build_exe.py --use-upx
+```
 
 ## Configuration
 You can modify the following settings in the `src/config.py` file:

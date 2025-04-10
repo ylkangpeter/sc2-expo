@@ -149,40 +149,38 @@ class ToastManager:
                     # 获取种族和军队配置
                     
                     army = get_troop_from_game()
-                    if army is None:
-                        return
-                    
-                    race = self.troop_loader.get_army(army)
-                    
-                    self.logger.info(f'当前种族: {race}, 军队配置: {army}')
-                    if race and army:
-                        # 读取军队配置文件
-                        army_file = get_resources_dir('resources', 'troops', race, army)
-                        self.logger.info(f'读取军队配置文件: {army_file}')
-                        if os.path.exists(army_file):
-                            with open(army_file, 'r', encoding='utf-8') as f:
-                                for line in f:
-                                    line = line.strip()
-                                    if line:
-                                        army_parts = line.split()
-                                        if len(army_parts) >= 2 and army_parts[0] == troops_data[0][1:]:
-                                            # 获取对应的图标
-                                            icons = army_parts[1].split('|')
-                                            self.logger.info(f'找到匹配的部队配置: {line}, 图标: {icons}')
-                                            for icon in icons:
-                                                icon_path = get_resources_dir('ico', 'troops', race, f'{icon}.png')
-                                                self.logger.info(f'加载图标文件: {icon_path}')
-                                                if os.path.exists(icon_path):
-                                                    icon_label = QLabel()
-                                                    pixmap = QPixmap(icon_path)
-                                                    icon_label.setPixmap(pixmap.scaled(config.TROOP_ICON_SIZE, config.TROOP_ICON_SIZE, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-                                                    tx_layout.addWidget(icon_label)
-                                                else:
-                                                    self.logger.warning(f'图标文件不存在: {icon_path}')
+                    if army is not None:
+                        race = self.troop_loader.get_army(army)
+                        
+                        self.logger.info(f'当前种族: {race}, 军队配置: {army}')
+                        if race and army:
+                            # 读取军队配置文件
+                            army_file = get_resources_dir('resources', 'troops', race, army)
+                            self.logger.info(f'读取军队配置文件: {army_file}')
+                            if os.path.exists(army_file):
+                                with open(army_file, 'r', encoding='utf-8') as f:
+                                    for line in f:
+                                        line = line.strip()
+                                        if line:
+                                            army_parts = line.split()
+                                            if len(army_parts) >= 2 and army_parts[0] == troops_data[0][1:]:
+                                                # 获取对应的图标
+                                                icons = army_parts[1].split('|')
+                                                self.logger.info(f'找到匹配的部队配置: {line}, 图标: {icons}')
+                                                for icon in icons:
+                                                    icon_path = get_resources_dir('ico', 'troops', race, f'{icon}.png')
+                                                    self.logger.info(f'加载图标文件: {icon_path}')
+                                                    if os.path.exists(icon_path):
+                                                        icon_label = QLabel()
+                                                        pixmap = QPixmap(icon_path)
+                                                        icon_label.setPixmap(pixmap.scaled(config.TROOP_ICON_SIZE, config.TROOP_ICON_SIZE, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                                                        tx_layout.addWidget(icon_label)
+                                                    else:
+                                                        self.logger.warning(f'图标文件不存在: {icon_path}')
+                            else:
+                                self.logger.warning(f'军队配置文件不存在: {army_file}')
                         else:
-                            self.logger.warning(f'军队配置文件不存在: {army_file}')
-                    else:
-                        self.logger.info('未获取到种族或军队配置')
+                            self.logger.info('未获取到种族或军队配置')
                 except Exception as e:
                     self.logger.error(f'解析部队图标失败: {str(e)}\n{traceback.format_exc()}')
                 
