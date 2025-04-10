@@ -1473,6 +1473,3 @@ class TimerWindow(QMainWindow):
         except Exception as e:
             self.logger.error(f'检查突变因子提醒失败: {str(e)}')
             self.logger.error(traceback.format_exc())
-            
-if __name__ == '__main__':
-    main()
