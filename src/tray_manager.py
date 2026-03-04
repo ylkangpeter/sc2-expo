@@ -21,7 +21,6 @@ class TrayManager:
         if self.tray_icon is not None:
             self.tray_icon.hide()
             self.tray_icon.deleteLater()
-            self.logger.info('已删除旧的托盘图标')
 
         self.tray_icon = QSystemTrayIcon(self.parent)
         
@@ -29,21 +28,14 @@ class TrayManager:
         if getattr(sys, 'frozen', False):
             # 如果是打包后的exe
             base_path = os.path.dirname(sys.executable)
-            self.logger.info(f'准备修改tray，检测到exe环境：{base_path}')
         else:
             # 如果是开发环境
             base_path = os.path.dirname(os.path.dirname(__file__))
-            self.logger.info(f'准备修改tray，检测到开发环境：{base_path}')
             
         icon_path = os.path.join(base_path, 'ico', 'fav.ico')
-        self.logger.info(f'加载托盘图标: {icon_path}')
         
-        if not os.path.exists(icon_path):
-            self.logger.error(f'托盘图标文件不存在: {icon_path}')
-        else:
-            self.logger.info('找到托盘图标文件')
-            
-        self.tray_icon.setIcon(QIcon(icon_path))
+        if os.path.exists(icon_path):
+            self.tray_icon.setIcon(QIcon(icon_path))
         
         # 创建托盘菜单
         tray_menu = QMenu()
@@ -69,6 +61,9 @@ class TrayManager:
         tray_menu.addMenu(language_menu)
         tray_menu.addAction(quit_action)
         
+        # 缓存屏幕分辨率
+        screen_width, screen_height = self.parent.get_screen_resolution()
+        
         # 设置托盘菜单的位置
         def show_context_menu(reason):
             if reason in [QSystemTrayIcon.Context, QSystemTrayIcon.Trigger]:  # 右键点击或左键点击
@@ -82,9 +77,6 @@ class TrayManager:
                 # 计算菜单位置，在鼠标右上方显示
                 menu_x = cursor_pos.x()
                 menu_y = cursor_pos.y() - menu_height
-                
-                # 获取屏幕尺寸
-                screen_width, screen_height = self.parent.get_screen_resolution()
                 
                 # 确保菜单不会超出屏幕边界
                 if menu_x + menu_width > screen_width:
@@ -100,4 +92,3 @@ class TrayManager:
         
         self.tray_icon.setContextMenu(tray_menu)
         self.tray_icon.show()
-        self.logger.info('已创建新的托盘图标')
