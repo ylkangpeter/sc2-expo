@@ -74,31 +74,24 @@ class TrayManager:
             if reason in [QSystemTrayIcon.Context, QSystemTrayIcon.Trigger]:  # 右键点击或左键点击
                 # 获取鼠标当前位置
                 cursor_pos = QCursor.pos()
-                self.logger.info(f'鼠标当前位置: x={cursor_pos.x()}, y={cursor_pos.y()}')
                 
                 # 获取菜单尺寸
                 menu_width = tray_menu.sizeHint().width()
                 menu_height = tray_menu.sizeHint().height()
-                self.logger.info(f'菜单尺寸: width={menu_width}, height={menu_height}')
                 
                 # 计算菜单位置，在鼠标右上方显示
                 menu_x = cursor_pos.x()
                 menu_y = cursor_pos.y() - menu_height
-                self.logger.info(f'初始计算的菜单位置: x={menu_x}, y={menu_y}')
                 
                 # 获取屏幕尺寸
                 screen_width, screen_height = self.parent.get_screen_resolution()
-                self.logger.info(f'屏幕尺寸: width={screen_width}, height={screen_height}')
                 
                 # 确保菜单不会超出屏幕边界
                 if menu_x + menu_width > screen_width:
                     menu_x = screen_width - menu_width
-                    self.logger.info(f'菜单超出右边界，调整后的x坐标: {menu_x}')
                 if menu_y < 0:
                     menu_y = 0
-                    self.logger.info(f'菜单超出上边界，调整后的y坐标: {menu_y}')
                 
-                self.logger.info(f'最终菜单显示位置: x={menu_x}, y={menu_y}')
                 # 显示菜单
                 tray_menu.exec_(QPoint(menu_x, menu_y))
         

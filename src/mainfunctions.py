@@ -30,15 +30,12 @@ def get_troop_from_game():
 def check_for_new_game(progress_callback: QtCore.pyqtSignal) -> None:
     global most_recent_playerdata, current_game_id
     
-    logger.info('check_for_new_game函数启动')
-    
     # 如果是调试模式，重置模拟时间
     if config.debug_mode:
         reset_mock()
     
     # 等待游戏初始化完成
     time.sleep(4)
-    logger.info('游戏初始化等待完成')
     
     # 用于识别新游戏的变量
     last_game_time = None
@@ -47,7 +44,6 @@ def check_for_new_game(progress_callback: QtCore.pyqtSignal) -> None:
         time.sleep(0.5)
 
         if APP_CLOSING:
-            logger.info('检测到应用程序正在关闭，退出check_for_new_game循环')
             break
 
         try:
@@ -67,7 +63,6 @@ def check_for_new_game(progress_callback: QtCore.pyqtSignal) -> None:
                     most_recent_playerdata = {'time': current_time}
                 else:
                     most_recent_playerdata['time'] = current_time
-                logger.debug(f'更新游戏时间: {current_time}')
             
             # 生成当前游戏的唯一标识（使用玩家列表的哈希值）
             new_game_id = hash(json.dumps(players, sort_keys=True))
@@ -75,10 +70,7 @@ def check_for_new_game(progress_callback: QtCore.pyqtSignal) -> None:
             # 如果游戏ID发生变化，说明是新游戏
             if new_game_id != current_game_id:
                 current_game_id = new_game_id
-                logger.info('检测到新游戏，准备更新地图信息')
                 
-                logger.debug(f'从游戏服务器获取数据: 显示时间={resp.get("displayTime")}, 玩家数量={len(players)}')
-
                 # 如果所有玩家都是用户类型，说明是对战模式，跳过
                 all_users = True
                 for player in players:
@@ -86,30 +78,22 @@ def check_for_new_game(progress_callback: QtCore.pyqtSignal) -> None:
                         all_users = False
 
                 if all_users:
-                    logger.debug('检测到对战模式，跳过处理')
                     continue
 
                 # 检查玩家数量
                 if len(players) <= 2:
-                    logger.debug(f'玩家数量不足: 玩家数量={len(players)}')
                     continue
 
                 # 检查游戏时间变化
                 current_time = resp['displayTime']
-                logger.info(f'从服务器获取的原始时间数据: {current_time}')
                 
                 # 更新全局变量
                 most_recent_playerdata = {
                     'time': current_time,
                     'map': resp.get('map')
                 }
-                logger.info(f'更新全局变量: {most_recent_playerdata}')
 
                 last_game_time = current_time
-                formatted_time = time.strftime("%M:%S", time.gmtime(current_time))
-                logger.info(f'游戏时间更新: {formatted_time} (格式化后), 原始数据: {current_time}')
-                # Find ally player and get your current player position
-                # Add the first player name that's not the main player. This could be expanded to any number of players.
                 
                 player_names = list()
                 player_position = 1
@@ -121,21 +105,14 @@ def check_for_new_game(progress_callback: QtCore.pyqtSignal) -> None:
 
                 # 识别地图
                 try:
-                    logger.info('开始识别地图...')
-                    logger.info(f'玩家数据: {json.dumps(players, ensure_ascii=False, indent=2)}')
                     # 从游戏API获取地图数据
                     map_found = identify_map(players)
                     
                     if map_found:
-                        logger.info(f'地图识别成功: {map_found}')
                         # 发送信号更新下拉列表
                         progress_callback.emit(['update_map', map_found])
                         # 更新全局变量中的地图信息
                         most_recent_playerdata['map'] = map_found
-                        logger.info(f'更新全局变量地图信息: {map_found}')
-                    else:
-                        logger.error('地图识别失败:')
-                        logger.error(f'- 原因: 无法从API响应中获取地图名称')
                 
                 except Exception:
                     logger.error(f'地图识别出错: {traceback.format_exc()}')
@@ -143,25 +120,23 @@ def check_for_new_game(progress_callback: QtCore.pyqtSignal) -> None:
                 troop = None
                 def troop_detection_callback(result):
                     if result['success']:
-                        logger.info(f"检测到部队: {result['match']}, 相似度: {result['similarity']}")
                         troop = result['match']
                     else:
-                        logger.info(f"部队检测失败: {result['reason']}")
                         troop = None
                 
                 show_fence.detect_troop(troop_detection_callback)
             
         except requests.exceptions.ConnectionError:
-            logger.debug('SC2请求失败。游戏未运行。')
+            pass
 
         except json.decoder.JSONDecodeError:
-            logger.info('SC2请求json解码失败（SC2正在启动或关闭）')
+            pass
 
         except requests.exceptions.ReadTimeout:
-            logger.info('SC2请求超时')
+            pass
 
         except Exception:
-            logger.info(traceback.format_exc())
+            logger.error(traceback.format_exc())
 
 def get_player_data(player_names):
     """获取玩家数据"""

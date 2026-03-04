@@ -110,6 +110,8 @@ def build_exe(use_upx=False, separate_libs=False):
         "--exclude-module=PyQt5.QtWebEngineWidgets "
         "--exclude-module=PyQt5.QtSql "
         "--exclude-module=PyQt5.QtXml "
+
+        "--optimize=2 "
         "src/main.py"
     )
     
@@ -178,7 +180,7 @@ def build_exe(use_upx=False, separate_libs=False):
 def main():
     # 解析命令行参数
     parser = argparse.ArgumentParser(description='构建SC2 Timer可执行文件')
-    parser.add_argument('--upx', type=int, choices=[0, 1], default=0,
+    parser.add_argument('--upx', type=int, choices=[0, 1], default=1,
                         help='是否使用UPX压缩（0：不压缩，1：压缩）')
     parser.add_argument('--separate-libs', type=int, choices=[0, 1], default=0,
                         help='是否分离依赖库（0：单文件模式，1：分离依赖库）')

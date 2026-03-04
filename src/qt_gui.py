@@ -220,12 +220,12 @@ class TimerWindow(QMainWindow):
         self.time_label.setFont(QFont('Consolas', 11))
         self.time_label.setStyleSheet('color: rgb(0, 255, 128); background-color: transparent')
         self.time_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        self.time_label.setGeometry(10, 40, 100, 20)  # 调整宽度为100px
+        self.time_label.setGeometry(10, 40, config.TIME_LABEL_WIDTH, 20)  # 使用配置的宽度
         self.time_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)  # 添加鼠标事件穿透
         
         # 创建地图版本选择按钮组
         self.map_version_group = QWidget(self.main_container)
-        self.map_version_group.setGeometry(60, 40, 100, 20)  # 增加总宽度到100px
+        self.map_version_group.setGeometry(10 + config.TIME_LABEL_WIDTH + 10, 40, 100, 20)  # 根据时间标签宽度动态计算位置
         self.map_version_group.setStyleSheet('background-color: transparent')
         version_layout = QHBoxLayout(self.map_version_group)
         version_layout.setContentsMargins(0, 0, 0, 0)
@@ -266,9 +266,9 @@ class TimerWindow(QMainWindow):
         self.table_area.setGeometry(0, 65, config.MAIN_WINDOW_WIDTH, config.TABLE_HEIGHT)  # 保持表格区域位置不变
         self.table_area.setColumnCount(3)
         self.table_area.horizontalHeader().setVisible(False)  # 隐藏水平表头
-        self.table_area.setColumnWidth(0, 50)  # 设置时间列的固定宽度
+        self.table_area.setColumnWidth(0, config.TIME_LABEL_WIDTH)  # 设置时间列的固定宽度
         self.table_area.setColumnWidth(2, 5)  # 设置时间列的固定宽度
-        self.table_area.setColumnWidth(1, config.MAIN_WINDOW_WIDTH - 55)  # 设置文字列的固定宽度
+        self.table_area.setColumnWidth(1, config.MAIN_WINDOW_WIDTH - config.TIME_LABEL_WIDTH - 5)  # 设置文字列的固定宽度
         self.table_area.verticalHeader().setVisible(False)  # 隐藏垂直表头
         self.table_area.setEditTriggers(QTableWidget.NoEditTriggers)  # 设置表格只读
         self.table_area.setSelectionBehavior(QTableWidget.SelectRows)  # 设置选择整行
@@ -669,14 +669,14 @@ class TimerWindow(QMainWindow):
                                 continue
                     
                     # 计算滚动位置，使最接近的时间点位于可见区域中间
-                    if self.table_area.rowHeight(0) == 0:
-                        return  # 或者返回你需要的其他值
-                    else:
-                        visible_rows = self.table_area.height() // self.table_area.rowHeight(0)
-                    scroll_position = max(0, closest_row - (visible_rows // 2))
-                    
-                    # 设置滚动位置
-                    self.table_area.verticalScrollBar().setValue(scroll_position)
+                    row_height = self.table_area.rowHeight(0)
+                    if row_height > 0 and self.table_area.rowCount() > 0:
+                        visible_rows = self.table_area.viewport().height() // row_height
+                        scroll_position = max(0, closest_row - (visible_rows // 2))
+                        
+                        current_scroll = self.table_area.verticalScrollBar().value()
+                        if abs(current_scroll - scroll_position) > 1:
+                            self.table_area.verticalScrollBar().setValue(scroll_position)
                 except Exception as e:
                     self.logger.error(f'调整表格滚动位置和颜色失败: {str(e)}\n{traceback.format_exc()}')
 
