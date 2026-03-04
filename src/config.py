@@ -39,6 +39,9 @@ TABLE_HEIGHT = 185 # 表格高度
 TABLE_NEXT_FONT_COLOR = [0, 255, 128]  # 表格下一个事件字体颜色 绿色/ Table font color
 TABLE_NEXT_FONT_BG_COLOR = [0, 255, 128, 30] # 表格下一个事件背景颜色，最后一个值是透明度
 
+# 时间显示配置
+TIME_LABEL_WIDTH = 50  # 时间显示标签宽度 / Time label width
+
 # 时间提醒配置
 TIME_ALERT_SECONDS = 30  # 提前提醒时间（秒）/ Time before alert (in seconds)
 

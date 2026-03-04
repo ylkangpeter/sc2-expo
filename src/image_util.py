@@ -13,117 +13,14 @@ from ctypes import windll
 from ctypes import c_int
 import config
 import traceback
-import numpy as np
-import cv2
-from skimage.metrics import structural_similarity as ssim
 from fileutil import get_resources_dir, list_files
 from logging_util import get_logger, setup_logger
+from lightweight_image_util import LightweightImageCache
 logger = get_logger(__name__)
 
-class ImageCache:
-    def __init__(self):
-        self.cache = {}
-        self.last_scan_time = None
-        
-    def add_image(self, image_path):
-        try:
-            img = cv2.imread(image_path)
-            if img is not None:
-                self.cache[image_path] = img
-                logger.warning(f'已加载图片到缓存: {image_path}')
-            else:
-                logger.error(f'无法加载图片: {image_path}')
-        except Exception as e:
-            logger.error(f'加载图片时发生错误: {str(e)}')
-            
-    def scan_directory(self):
-        troops_dir = get_resources_dir('resources', 'screen_capcture', 'troops')
-        if not troops_dir:
-            logger.error('无法找到troops目录')
-            return
-            
-        if not os.path.exists(troops_dir):
-            os.makedirs(troops_dir)
-            logger.warning(f'创建troops目录: {troops_dir}')
-            return
-        
-        logger.info(f'开始扫描troops目录: {troops_dir}')
-            
-        current_files = set(f for f in list_files(troops_dir) if f.lower().endswith('.png'))
-        cached_files = set(os.path.basename(p) for p in self.cache.keys())
-        
-        # 找出新增的文件
-        new_files = current_files - cached_files
-        if new_files:
-            for file in new_files:
-                full_path = os.path.join(troops_dir, file)
-                self.add_image(full_path)
-                
-        self.last_scan_time = datetime.now()
-        
-    def get_most_similar_image(self, target_img):
-        if not self.cache:
-            logger.warning('图片缓存为空')
-            return None, 0.0
-            
-        max_score = 0.0
-        best_match = None
-        
-        for path, cached_img in self.cache.items():
-            try:
-                # 确保两张图片大小一致
-                resized_cached = cv2.resize(cached_img, (target_img.shape[1], target_img.shape[0]))
-                
-                # 转换为灰度图
-                gray1 = cv2.cvtColor(target_img, cv2.COLOR_BGR2GRAY)
-                gray2 = cv2.cvtColor(resized_cached, cv2.COLOR_BGR2GRAY)
-                
-                # 计算SSIM
-                score = ssim(gray1, gray2)
-                logger.info(f'与图片 {os.path.basename(path)} 的相似度: {score}')
-                
-                if score > max_score:
-                    max_score = score
-                    best_match = path
-            except Exception as e:
-                logger.error(f'比较图片时发生错误: {str(e)}')
-                continue
-        best_match = os.path.splitext(os.path.basename(best_match))[0] 
-        return best_match, max_score
-        
-    def compare_images(self, image_stream):
-        """比较图像与缓存中的所有图像的相似度
-        Args:
-            image_stream: 图像数据流
-        Returns:
-            tuple: (最相似图片的路径, 相似度值)
-        """
-        try:
-            # 扫描并更新图片缓存
-            self.scan_directory()
-            
-            # 读取数据流中的图像
-            image_stream_array = np.frombuffer(image_stream, np.uint8)
-            img = cv2.imdecode(image_stream_array, cv2.IMREAD_COLOR)
-            
-            if img is None:
-                logger.error('无法读取图像数据流')
-                return None, 0.0
-                
-            # 在缓存中查找最相似的图片
-            best_match, max_score = self.get_most_similar_image(img)
-            
-            if best_match:
-                logger.info(f'找到最相似的图片: {os.path.basename(best_match)}，相似度: {max_score}')
-            else:
-                logger.warning('未找到相似的图片')
-                
-            return best_match, max_score
-            
-        except Exception as e:
-            logger.error(f'比较图像时发生错误: {str(e)}')
-            logger.error(traceback.format_exc())
-            return None, 0.0
+class ImageCache(LightweightImageCache):
+    """使用轻量级实现替代OpenCV和scikit-image"""
+    pass
         
 class ScreenshotTool:
     def __init__(self):
