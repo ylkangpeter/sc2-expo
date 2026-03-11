@@ -13,6 +13,7 @@ class ToastManager:
     def __init__(self, parent_window):
         self.parent = parent_window
         self.logger = parent_window.logger
+        self.toast_container = None
         self.init_toast()
 
     def init_toast(self):
@@ -73,6 +74,10 @@ class ToastManager:
 
     def hide_toast(self):
         """隐藏Toast提示"""
+        if self.toast_container is not None:
+            self.toast_container.hide()
+            self.toast_container.deleteLater()
+            self.toast_container = None
         self.toast_label.hide()
         self.toast_timer.stop()
 
@@ -80,6 +85,9 @@ class ToastManager:
         """隐藏Mutator提示"""
         self.mutator_alert_label.hide()
         self.mutator_alert_timer.stop()
+
+    def is_toast_visible(self):
+        return self.toast_container is not None and self.toast_container.isVisible()
 
     def show_map_toast(self, message, duration=None, force_show=False):
         """显示地图相关的Toast提示"""
@@ -98,7 +106,8 @@ class ToastManager:
             duration = config.TOAST_DURATION
 
         # 创建一个水平布局来容纳文本和图标
-        container = QWidget()
+        self.hide_toast()
+        container = QWidget(self.parent)
         layout = QHBoxLayout(container)
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(5)
@@ -234,6 +243,6 @@ class ToastManager:
         container.move(x, y)
 
         # 显示容器并启动定时器
-        self.toast_label = container
-        self.toast_label.show()
+        self.toast_container = container
+        self.toast_container.show()
         self.toast_timer.start(duration)
