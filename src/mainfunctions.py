@@ -28,7 +28,7 @@ def get_troop_from_game():
     return troop
 
 def check_for_new_game(progress_callback: QtCore.pyqtSignal) -> None:
-    global most_recent_playerdata, current_game_id
+    global most_recent_playerdata, current_game_id, troop
     
     # 如果是调试模式，重置模拟时间
     if config.debug_mode:
@@ -119,6 +119,7 @@ def check_for_new_game(progress_callback: QtCore.pyqtSignal) -> None:
                 
                 troop = None
                 def troop_detection_callback(result):
+                    global troop
                     if result['success']:
                         troop = result['match']
                     else:

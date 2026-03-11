@@ -1,94 +1,78 @@
 import os
 import sys
-from PyQt5.QtWidgets import QSystemTrayIcon, QMenu, QAction
-from PyQt5.QtGui import QIcon, QCursor
-from PyQt5.QtCore import QPoint
-from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication, QAction, QMenu, QSystemTrayIcon
+from PyQt5.QtGui import QIcon
+
 from fileutil import get_resources_dir
 import config
 from logging_util import get_logger
+
 
 class TrayManager:
     def __init__(self, parent=None):
         self.parent = parent
         self.logger = get_logger(__name__)
         self.tray_icon = None
+        self.tray_menu = None
         self.init_tray()
 
+    def dispose(self):
+        if self.tray_icon is None:
+            return
+        try:
+            self.tray_icon.activated.disconnect(self.on_tray_activated)
+        except Exception:
+            pass
+        self.tray_icon.hide()
+        self.tray_icon.deleteLater()
+        self.tray_icon = None
+        self.tray_menu = None
+
     def init_tray(self):
-        """初始化系统托盘"""
-        # 如果已存在托盘图标，先删除它
-        if self.tray_icon is not None:
-            self.tray_icon.hide()
-            self.tray_icon.deleteLater()
+        self.dispose()
 
         self.tray_icon = QSystemTrayIcon(self.parent)
-        
-        # 修改图标路径获取方式
+
         if getattr(sys, 'frozen', False):
-            # 如果是打包后的exe
             base_path = os.path.dirname(sys.executable)
         else:
-            # 如果是开发环境
             base_path = os.path.dirname(os.path.dirname(__file__))
-            
+
         icon_path = os.path.join(base_path, 'ico', 'fav.ico')
-        
         if os.path.exists(icon_path):
             self.tray_icon.setIcon(QIcon(icon_path))
-        
-        # 创建托盘菜单
-        tray_menu = QMenu()
-        show_action = QAction(self.parent.get_text("show_action"), self.parent)
-        quit_action = QAction(self.parent.get_text("quit_action"), self.parent)
-        
+
+        self.tray_menu = QMenu(self.parent)
+        show_action = QAction(self.parent.get_text('show_action'), self.parent)
+        quit_action = QAction(self.parent.get_text('quit_action'), self.parent)
+
         show_action.triggered.connect(self.parent.show)
         quit_action.triggered.connect(QApplication.instance().quit)
-        
-        # 添加语言设置菜单
-        language_menu = QMenu(self.parent.get_text("language_menu"), self.parent)
+
+        language_menu = QMenu(self.parent.get_text('language_menu'), self.parent)
         maps_dir = get_resources_dir('resources', 'maps')
-        for lang_dir in os.listdir(maps_dir):
-            if os.path.isdir(os.path.join(maps_dir, lang_dir)) and lang_dir not in ['.', '..']:
-                language_action = QAction(lang_dir, self.parent)
-                # 为当前选中的语言添加标记
-                if lang_dir == config.current_language:
-                    language_action.setText(f"{lang_dir}✓")
-                language_action.triggered.connect(lambda checked, lang=lang_dir: self.parent.on_language_changed(lang))
-                language_menu.addAction(language_action)
-        
-        tray_menu.addAction(show_action)
-        tray_menu.addMenu(language_menu)
-        tray_menu.addAction(quit_action)
-        
-        # 缓存屏幕分辨率
-        screen_width, screen_height = self.parent.get_screen_resolution()
-        
-        # 设置托盘菜单的位置
-        def show_context_menu(reason):
-            if reason in [QSystemTrayIcon.Context, QSystemTrayIcon.Trigger]:  # 右键点击或左键点击
-                # 获取鼠标当前位置
-                cursor_pos = QCursor.pos()
-                
-                # 获取菜单尺寸
-                menu_width = tray_menu.sizeHint().width()
-                menu_height = tray_menu.sizeHint().height()
-                
-                # 计算菜单位置，在鼠标右上方显示
-                menu_x = cursor_pos.x()
-                menu_y = cursor_pos.y() - menu_height
-                
-                # 确保菜单不会超出屏幕边界
-                if menu_x + menu_width > screen_width:
-                    menu_x = screen_width - menu_width
-                if menu_y < 0:
-                    menu_y = 0
-                
-                # 显示菜单
-                tray_menu.exec_(QPoint(menu_x, menu_y))
-        
-        # 连接托盘图标的点击事件
-        self.tray_icon.activated.connect(show_context_menu)
-        
-        self.tray_icon.setContextMenu(tray_menu)
+        if maps_dir and os.path.isdir(maps_dir):
+            for lang_dir in os.listdir(maps_dir):
+                lang_path = os.path.join(maps_dir, lang_dir)
+                if os.path.isdir(lang_path) and lang_dir not in ['.', '..']:
+                    language_action = QAction(lang_dir, self.parent)
+                    if lang_dir == config.current_language:
+                        language_action.setText(f'{lang_dir} (current)')
+                    language_action.triggered.connect(
+                        lambda checked, lang=lang_dir: self.parent.on_language_changed(lang)
+                    )
+                    language_menu.addAction(language_action)
+
+        self.tray_menu.addAction(show_action)
+        self.tray_menu.addMenu(language_menu)
+        self.tray_menu.addAction(quit_action)
+
+        # Let Qt render and position right-click menu natively.
+        self.tray_icon.setContextMenu(self.tray_menu)
+        # Only keep light left-click behavior.
+        self.tray_icon.activated.connect(self.on_tray_activated)
         self.tray_icon.show()
+
+    def on_tray_activated(self, reason):
+        if reason == QSystemTrayIcon.Trigger:
+            self.parent.show()

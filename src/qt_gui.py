@@ -61,6 +61,7 @@ class TimerWindow(QMainWindow):
         # 初始化状态
         self.current_time = ""
         self.drag_position = QPoint(0, 0)
+        self._last_ui_second = None
         
         # 添加一个标志来追踪地图选择的来源
         self.manual_map_selection = False
@@ -74,7 +75,7 @@ class TimerWindow(QMainWindow):
         # 初始化定时器
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_game_time)
-        self.timer.start(100)  # 自动开始更新，每100毫秒更新一次
+        self.timer.start(250)  # 自动开始更新，每100毫秒更新一次
         
         # 初始化突变因子提醒标签和定时器
         self.mutator_alert_labels = {}
@@ -559,7 +560,8 @@ class TimerWindow(QMainWindow):
                     formatted_time = f"{minutes:02d}:{seconds:02d}"
                     
                 self.current_time = formatted_time
-                self.time_label.setText(formatted_time)
+                if self.time_label.text() != formatted_time:
+                    self.time_label.setText(formatted_time)
                 
                 # 更新地图信息（如果有）
                 map_name = most_recent_playerdata.get('map')
@@ -573,6 +575,10 @@ class TimerWindow(QMainWindow):
                     # 将当前时间转换为分钟数，以便于比较
                     current_minutes = hours * 60 + minutes
                     current_seconds = current_minutes * 60 + seconds
+
+                    if self._last_ui_second == current_seconds:
+                        return
+                    self._last_ui_second = current_seconds
                     
                     # 遍历表格找到最接近的时间点并更新颜色
                     closest_row = 0
@@ -642,7 +648,7 @@ class TimerWindow(QMainWindow):
                                         # 计算距离事件的时间差（秒）
                                         time_diff = row_seconds - current_seconds
                                         # 只在事件即将发生前的特定时间段内（30秒内）才显示Toast提示，并避免重复触发
-                                        if time_diff > 0 and time_diff <= config.TIME_ALERT_SECONDS and not self.toast_manager.toast_label.isVisible():
+                                        if time_diff > 0 and time_diff <= config.TIME_ALERT_SECONDS and not self.toast_manager.is_toast_visible():
                                             toast_message = f"{time_item.text()}\t{event_item.text()}" + (f"\t{army_item.text()}" if army_item else "")
                                             self.show_toast(toast_message, config.TOAST_DURATION)
                                 elif abs(row_seconds - current_seconds) <= 30:  # 即将到来的时间（30秒内）
@@ -652,13 +658,6 @@ class TimerWindow(QMainWindow):
                                     if event_item:
                                         event_item.setForeground(QBrush(QColor(0, 191, 255)))
                                         event_item.setBackground(QBrush(QColor(0, 191, 255, 30)))
-                                        # 强制更新表格项
-                                        self.table_area.update()
-                                        # 强制更新表格视图
-                                        self.table_area.viewport().update()
-                                        # 刷新特定单元格
-                                        model_index = self.table_area.model().index(row, 1)
-                                        self.table_area.dataChanged(model_index, model_index)
                                 else:  # 未来的时间
                                     time_item.setForeground(QBrush(QColor(255, 255, 255)))
                                     time_item.setBackground(QBrush(QColor(0, 0, 0, 0)))
@@ -695,6 +694,8 @@ class TimerWindow(QMainWindow):
     def init_tray(self):
         """初始化系统托盘"""
         from tray_manager import TrayManager
+        if hasattr(self, 'tray_manager') and self.tray_manager is not None:
+            self.tray_manager.dispose()
         self.tray_manager = TrayManager(self)
 
     def mousePressEvent(self, event):
@@ -1200,6 +1201,8 @@ class TimerWindow(QMainWindow):
             return key
 
     def on_language_changed(self, lang):
+        if lang == config.current_language:
+            return
         """处理语言切换事件"""
         # 更新config.py中的语言配置
         if getattr(sys, 'frozen', False):  # 是否为打包的 exe
@@ -1298,6 +1301,8 @@ class TimerWindow(QMainWindow):
         """窗口关闭事件处理"""
         try:
             # 清理全局快捷键
+            if hasattr(self, 'tray_manager') and self.tray_manager is not None:
+                self.tray_manager.dispose()
             keyboard.unhook_all()
             self.logger.info('已清理所有全局快捷键')
         except Exception as e:
