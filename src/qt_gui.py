@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import sys
 import re
@@ -11,7 +12,8 @@ from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QLabel, QSystemTrayIcon, 
     QMenu, QAction, QApplication, QComboBox, 
     QTableWidgetItem, QPushButton, QTableWidget, 
-    QHeaderView, QVBoxLayout, QGraphicsDropShadowEffect, QHBoxLayout  # 从 QtWidgets 导入
+    QHeaderView, QVBoxLayout, QGraphicsDropShadowEffect, QHBoxLayout,
+    QAbstractItemView  # 从 QtWidgets 导入
 )
 from control_window import ControlWindow
 from commander_selector import CommanderSelector
@@ -62,6 +64,8 @@ class TimerWindow(QMainWindow):
         self.current_time = ""
         self.drag_position = QPoint(0, 0)
         self._last_ui_second = None
+        self._last_centered_row = None
+        self._last_toast_event_key = None
         
         # 添加一个标志来追踪地图选择的来源
         self.manual_map_selection = False
@@ -105,7 +109,7 @@ class TimerWindow(QMainWindow):
         
         # 创建控制窗体
         self.control_window = ControlWindow()
-        self.control_window.move(self.x(), self.y() - self.control_window.height())
+        self.update_control_window_position()
         self.control_window.show()
 
         # 连接控制窗口的状态改变信号
@@ -151,10 +155,39 @@ class TimerWindow(QMainWindow):
         # 保持控制窗口与主窗口位置同步
         current_screen = self.get_current_screen()
         screen_geometry = current_screen.geometry()
-        
-        # 确保控制窗口不会超出屏幕顶部
-        new_y = max(screen_geometry.y(), self.y() - self.control_window.height())
-        self.control_window.move(self.x(), new_y)
+
+        new_x = self.x()
+        new_y = self.y() - self.control_window.height()
+
+        # 限制控制窗口始终位于当前屏幕内
+        min_x = screen_geometry.x()
+        max_x = screen_geometry.x() + max(0, screen_geometry.width() - self.control_window.width())
+        min_y = screen_geometry.y()
+        max_y = screen_geometry.y() + max(0, screen_geometry.height() - self.control_window.height())
+
+        new_x = min(max(new_x, min_x), max_x)
+        new_y = min(max(new_y, min_y), max_y)
+        self.control_window.move(new_x, new_y)
+
+    def center_table_on_row(self, row):
+        """仅按纵向滚动，将目标行稳定放到表格中心。"""
+        if row is None or row < 0 or row >= self.table_area.rowCount():
+            return
+
+        row_top = 0
+        for row_index in range(row):
+            row_top += self.table_area.rowHeight(row_index)
+
+        row_height = self.table_area.rowHeight(row)
+        viewport_height = self.table_area.viewport().height()
+        target_scroll = int(row_top + (row_height / 2) - (viewport_height / 2))
+
+        scrollbar = self.table_area.verticalScrollBar()
+        target_scroll = max(scrollbar.minimum(), min(target_scroll, scrollbar.maximum()))
+
+        if self._last_centered_row != row or abs(scrollbar.value() - target_scroll) > 1:
+            scrollbar.setValue(target_scroll)
+            self._last_centered_row = row
 
     def moveEvent(self, event):
         """鼠标移动事件，用于更新控制窗口位置"""
@@ -195,7 +228,12 @@ class TimerWindow(QMainWindow):
     def init_ui(self):
         """初始化用户界面"""
         self.setWindowTitle('SC2 Timer')
-        self.setGeometry(0, 300, config.MAIN_WINDOW_WIDTH, 30)  # 调整初始窗口位置，x坐标设为0
+        self.setGeometry(
+            getattr(config, 'MAIN_WINDOW_X', 0),
+            getattr(config, 'MAIN_WINDOW_Y', 300),
+            config.MAIN_WINDOW_WIDTH,
+            30
+        )
         
         # 设置窗口样式 - 不设置点击穿透，这将由on_control_state_changed方法控制
         self.setWindowFlags(
@@ -273,6 +311,7 @@ class TimerWindow(QMainWindow):
         self.table_area.verticalHeader().setVisible(False)  # 隐藏垂直表头
         self.table_area.setEditTriggers(QTableWidget.NoEditTriggers)  # 设置表格只读
         self.table_area.setSelectionBehavior(QTableWidget.SelectRows)  # 设置选择整行
+        self.table_area.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.table_area.setShowGrid(False)  # 隐藏网格线
         self.table_area.setStyleSheet(f'''
             QTableWidget {{ 
@@ -576,106 +615,90 @@ class TimerWindow(QMainWindow):
                     current_minutes = hours * 60 + minutes
                     current_seconds = current_minutes * 60 + seconds
 
+                    if self._last_ui_second is not None and current_seconds < self._last_ui_second:
+                        self._last_centered_row = None
+                        self._last_toast_event_key = None
+
                     if self._last_ui_second == current_seconds:
                         return
                     self._last_ui_second = current_seconds
                     
-                    # 遍历表格找到最接近的时间点并更新颜色
-                    closest_row = 0
-                    min_diff = float('inf')
-                    
-                    # 找出下一个即将触发的事件
+                    parsed_rows = []
+                    current_event_row = -1
                     next_event_row = -1
-                    next_event_seconds = float('inf')
-                    
-                    # 第一次遍历：找出下一个即将触发的事件
+                    next_event_seconds = None
+
                     for row in range(self.table_area.rowCount()):
                         time_item = self.table_area.item(row, 0)
-                        if time_item and time_item.text():
-                            try:
-                                # 解析表格中的时间（格式可能是MM:SS或HH:MM:SS）
-                                time_parts = time_item.text().split(':')
-                                row_seconds = 0
-                                if len(time_parts) == 2:  # MM:SS格式
-                                    row_seconds = int(time_parts[0]) * 60 + int(time_parts[1])
-                                elif len(time_parts) == 3:  # HH:MM:SS格式
-                                    row_seconds = int(time_parts[0]) * 3600 + int(time_parts[1]) * 60 + int(time_parts[2])
-                                
-                                # 找出下一个即将触发的事件（未来的最近事件）
-                                if row_seconds > current_seconds and row_seconds < next_event_seconds:
-                                    next_event_seconds = row_seconds
-                                    next_event_row = row
-                                    
-                                # 计算时间差（秒）
-                                diff = abs(current_seconds - row_seconds)
-                                if diff < min_diff:
-                                    min_diff = diff
-                                    closest_row = row
-                            except ValueError:
+                        if not (time_item and time_item.text()):
+                            continue
+
+                        try:
+                            time_parts = time_item.text().split(':')
+                            if len(time_parts) == 2:
+                                row_seconds = int(time_parts[0]) * 60 + int(time_parts[1])
+                            elif len(time_parts) == 3:
+                                row_seconds = int(time_parts[0]) * 3600 + int(time_parts[1]) * 60 + int(time_parts[2])
+                            else:
                                 continue
+                        except ValueError:
+                            continue
+
+                        parsed_rows.append((row, row_seconds))
+
+                        if row_seconds <= current_seconds:
+                            current_event_row = row
+                        elif next_event_row == -1:
+                            next_event_row = row
+                            next_event_seconds = row_seconds
+
+                    if current_event_row == -1 and parsed_rows:
+                        current_event_row = parsed_rows[0][0]
                     
                     # 第二次遍历：设置颜色
-                    for row in range(self.table_area.rowCount()):
+                    for row, row_seconds in parsed_rows:
                         time_item = self.table_area.item(row, 0)
                         event_item = self.table_area.item(row, 1)
                         army_item = self.table_area.item(row, 2)
-                        if time_item and time_item.text():
-                            try:
-                                # 解析表格中的时间（格式可能是MM:SS或HH:MM:SS）
-                                time_parts = time_item.text().split(':')
-                                row_seconds = 0
-                                if len(time_parts) == 2:  # MM:SS格式
-                                    row_seconds = int(time_parts[0]) * 60 + int(time_parts[1])
-                                elif len(time_parts) == 3:  # HH:MM:SS格式
-                                    row_seconds = int(time_parts[0]) * 3600 + int(time_parts[1]) * 60 + int(time_parts[2])
-                                
-                                # 根据时间差设置颜色
-                                if row_seconds < current_seconds:  # 已过去的时间
-                                    time_item.setForeground(QBrush(QColor(128, 128, 128, 255)))
-                                    time_item.setBackground(QBrush(QColor(0, 0, 0, 0)))
-                                    if event_item:
-                                        event_item.setForeground(QBrush(QColor(128, 128, 128, 255)))
-                                        event_item.setBackground(QBrush(QColor(0, 0, 0, 0)))
-                                elif row == next_event_row:  # 下一个即将触发的事件
-                                    time_item.setForeground(QBrush(QColor(config.TABLE_NEXT_FONT_COLOR[0], config.TABLE_NEXT_FONT_COLOR[1], config.TABLE_NEXT_FONT_COLOR[2])))  # 使用绿色高亮
-                                    time_item.setBackground(QBrush(QColor(config.TABLE_NEXT_FONT_BG_COLOR[0], config.TABLE_NEXT_FONT_BG_COLOR[1], config.TABLE_NEXT_FONT_BG_COLOR[2], config.TABLE_NEXT_FONT_BG_COLOR[3])))
-                                    if event_item:
-                                        event_item.setForeground(QBrush(QColor(config.TABLE_NEXT_FONT_COLOR[0], config.TABLE_NEXT_FONT_COLOR[1], config.TABLE_NEXT_FONT_COLOR[2])))  # 使用绿色高亮
-                                        event_item.setBackground(QBrush(QColor(config.TABLE_NEXT_FONT_BG_COLOR[0], config.TABLE_NEXT_FONT_BG_COLOR[1], config.TABLE_NEXT_FONT_BG_COLOR[2], config.TABLE_NEXT_FONT_BG_COLOR[3])))
-                                
-                                        # 显示完整的时间和事件信息作为Toast提醒
-                                        # 检查是否需要显示Toast提示
-                                        # 计算距离事件的时间差（秒）
-                                        time_diff = row_seconds - current_seconds
-                                        # 只在事件即将发生前的特定时间段内（30秒内）才显示Toast提示，并避免重复触发
-                                        if time_diff > 0 and time_diff <= config.TIME_ALERT_SECONDS and not self.toast_manager.is_toast_visible():
-                                            toast_message = f"{time_item.text()}\t{event_item.text()}" + (f"\t{army_item.text()}" if army_item else "")
-                                            self.show_toast(toast_message, config.TOAST_DURATION)
-                                elif abs(row_seconds - current_seconds) <= 30:  # 即将到来的时间（30秒内）
-                                    time_item.setForeground(QBrush(QColor(0, 191, 255)))
-                                    time_item.setBackground(QBrush(QColor(0, 191, 255, 30)))
-                                    # 确保事件项存在且设置正确的颜色
-                                    if event_item:
-                                        event_item.setForeground(QBrush(QColor(0, 191, 255)))
-                                        event_item.setBackground(QBrush(QColor(0, 191, 255, 30)))
-                                else:  # 未来的时间
-                                    time_item.setForeground(QBrush(QColor(255, 255, 255)))
-                                    time_item.setBackground(QBrush(QColor(0, 0, 0, 0)))
-                                    if event_item:
-                                        event_item.setForeground(QBrush(QColor(255, 255, 255)))
-                                        event_item.setBackground(QBrush(QColor(0, 0, 0, 0)))
-                            except ValueError:
-                                continue
-                    
-                    # 计算滚动位置，使最接近的时间点位于可见区域中间
-                    row_height = self.table_area.rowHeight(0)
-                    if row_height > 0 and self.table_area.rowCount() > 0:
-                        visible_rows = self.table_area.viewport().height() // row_height
-                        scroll_position = max(0, closest_row - (visible_rows // 2))
-                        
-                        current_scroll = self.table_area.verticalScrollBar().value()
-                        if abs(current_scroll - scroll_position) > 1:
-                            self.table_area.verticalScrollBar().setValue(scroll_position)
+                        # 根据时间差设置颜色
+                        if row < current_event_row:
+                            time_item.setForeground(QBrush(QColor(128, 128, 128, 255)))
+                            time_item.setBackground(QBrush(QColor(0, 0, 0, 0)))
+                            if event_item:
+                                event_item.setForeground(QBrush(QColor(128, 128, 128, 255)))
+                                event_item.setBackground(QBrush(QColor(0, 0, 0, 0)))
+                        elif row == current_event_row:
+                            time_item.setForeground(QBrush(QColor(config.TABLE_NEXT_FONT_COLOR[0], config.TABLE_NEXT_FONT_COLOR[1], config.TABLE_NEXT_FONT_COLOR[2])))
+                            time_item.setBackground(QBrush(QColor(config.TABLE_NEXT_FONT_BG_COLOR[0], config.TABLE_NEXT_FONT_BG_COLOR[1], config.TABLE_NEXT_FONT_BG_COLOR[2], config.TABLE_NEXT_FONT_BG_COLOR[3])))
+                            if event_item:
+                                event_item.setForeground(QBrush(QColor(config.TABLE_NEXT_FONT_COLOR[0], config.TABLE_NEXT_FONT_COLOR[1], config.TABLE_NEXT_FONT_COLOR[2])))
+                                event_item.setBackground(QBrush(QColor(config.TABLE_NEXT_FONT_BG_COLOR[0], config.TABLE_NEXT_FONT_BG_COLOR[1], config.TABLE_NEXT_FONT_BG_COLOR[2], config.TABLE_NEXT_FONT_BG_COLOR[3])))
+                        elif next_event_row == row and next_event_seconds is not None and (next_event_seconds - current_seconds) <= config.TIME_ALERT_SECONDS:
+                            time_item.setForeground(QBrush(QColor(0, 191, 255)))
+                            time_item.setBackground(QBrush(QColor(0, 191, 255, 30)))
+                            if event_item:
+                                event_item.setForeground(QBrush(QColor(0, 191, 255)))
+                                event_item.setBackground(QBrush(QColor(0, 191, 255, 30)))
+                        else:
+                            time_item.setForeground(QBrush(QColor(255, 255, 255)))
+                            time_item.setBackground(QBrush(QColor(0, 0, 0, 0)))
+                            if event_item:
+                                event_item.setForeground(QBrush(QColor(255, 255, 255)))
+                                event_item.setBackground(QBrush(QColor(0, 0, 0, 0)))
+
+                    if next_event_row >= 0 and next_event_seconds is not None:
+                        time_diff = next_event_seconds - current_seconds
+                        toast_event_key = (next_event_row, next_event_seconds)
+                        if 0 < time_diff <= config.TIME_ALERT_SECONDS and self._last_toast_event_key != toast_event_key and not self.toast_manager.is_toast_visible():
+                            time_item = self.table_area.item(next_event_row, 0)
+                            event_item = self.table_area.item(next_event_row, 1)
+                            army_item = self.table_area.item(next_event_row, 2)
+                            if time_item and event_item:
+                                toast_message = f"{time_item.text()}\t{event_item.text()}" + (f"\t{army_item.text()}" if army_item else "")
+                                self.show_toast(toast_message, config.TOAST_DURATION)
+                                self._last_toast_event_key = toast_event_key
+
+                    self.center_table_on_row(current_event_row)
                 except Exception as e:
                     self.logger.error(f'调整表格滚动位置和颜色失败: {str(e)}\n{traceback.format_exc()}')
 

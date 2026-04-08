@@ -32,6 +32,8 @@ MAIN_WINDOW_BG_COLOR = 'rgba(43, 43, 43, 200)' # 主界面背景设置
 COMMANDER_SELECTOR_BG_COLOR = 'rgba(43, 43, 43, 200)'  # 指挥官选择器背景设置
 # 窗体宽度 注意这里没有对按钮之类的宽度进行适配，改了之后主要影响的是表格中文字显示的宽度
 MAIN_WINDOW_WIDTH = 167  # 主窗口宽度 / Main window width
+MAIN_WINDOW_X = 0  # 主窗口左上角X坐标 / Main window top-left X
+MAIN_WINDOW_Y = 300  # 主窗口左上角Y坐标 / Main window top-left Y
 
 # 表格字体大小
 TABLE_FONT_SIZE = 12  # 表格字体大小 / Table font size
