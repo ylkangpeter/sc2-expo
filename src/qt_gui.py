@@ -624,9 +624,8 @@ class TimerWindow(QMainWindow):
                     self._last_ui_second = current_seconds
                     
                     parsed_rows = []
-                    current_event_row = -1
-                    next_event_row = -1
-                    next_event_seconds = None
+                    active_event_row = -1
+                    active_event_seconds = None
 
                     for row in range(self.table_area.rowCount()):
                         time_item = self.table_area.item(row, 0)
@@ -646,14 +645,12 @@ class TimerWindow(QMainWindow):
 
                         parsed_rows.append((row, row_seconds))
 
-                        if row_seconds <= current_seconds:
-                            current_event_row = row
-                        elif next_event_row == -1:
-                            next_event_row = row
-                            next_event_seconds = row_seconds
+                        if active_event_row == -1 and row_seconds >= current_seconds:
+                            active_event_row = row
+                            active_event_seconds = row_seconds
 
-                    if current_event_row == -1 and parsed_rows:
-                        current_event_row = parsed_rows[0][0]
+                    if active_event_row == -1 and parsed_rows:
+                        active_event_row, active_event_seconds = parsed_rows[-1]
                     
                     # 第二次遍历：设置颜色
                     for row, row_seconds in parsed_rows:
@@ -661,19 +658,19 @@ class TimerWindow(QMainWindow):
                         event_item = self.table_area.item(row, 1)
                         army_item = self.table_area.item(row, 2)
                         # 根据时间差设置颜色
-                        if row < current_event_row:
+                        if row < active_event_row:
                             time_item.setForeground(QBrush(QColor(128, 128, 128, 255)))
                             time_item.setBackground(QBrush(QColor(0, 0, 0, 0)))
                             if event_item:
                                 event_item.setForeground(QBrush(QColor(128, 128, 128, 255)))
                                 event_item.setBackground(QBrush(QColor(0, 0, 0, 0)))
-                        elif row == current_event_row:
+                        elif row == active_event_row:
                             time_item.setForeground(QBrush(QColor(config.TABLE_NEXT_FONT_COLOR[0], config.TABLE_NEXT_FONT_COLOR[1], config.TABLE_NEXT_FONT_COLOR[2])))
                             time_item.setBackground(QBrush(QColor(config.TABLE_NEXT_FONT_BG_COLOR[0], config.TABLE_NEXT_FONT_BG_COLOR[1], config.TABLE_NEXT_FONT_BG_COLOR[2], config.TABLE_NEXT_FONT_BG_COLOR[3])))
                             if event_item:
                                 event_item.setForeground(QBrush(QColor(config.TABLE_NEXT_FONT_COLOR[0], config.TABLE_NEXT_FONT_COLOR[1], config.TABLE_NEXT_FONT_COLOR[2])))
                                 event_item.setBackground(QBrush(QColor(config.TABLE_NEXT_FONT_BG_COLOR[0], config.TABLE_NEXT_FONT_BG_COLOR[1], config.TABLE_NEXT_FONT_BG_COLOR[2], config.TABLE_NEXT_FONT_BG_COLOR[3])))
-                        elif next_event_row == row and next_event_seconds is not None and (next_event_seconds - current_seconds) <= config.TIME_ALERT_SECONDS:
+                        elif row_seconds > current_seconds and (row_seconds - current_seconds) <= config.TIME_ALERT_SECONDS:
                             time_item.setForeground(QBrush(QColor(0, 191, 255)))
                             time_item.setBackground(QBrush(QColor(0, 191, 255, 30)))
                             if event_item:
@@ -686,19 +683,19 @@ class TimerWindow(QMainWindow):
                                 event_item.setForeground(QBrush(QColor(255, 255, 255)))
                                 event_item.setBackground(QBrush(QColor(0, 0, 0, 0)))
 
-                    if next_event_row >= 0 and next_event_seconds is not None:
-                        time_diff = next_event_seconds - current_seconds
-                        toast_event_key = (next_event_row, next_event_seconds)
+                    if active_event_row >= 0 and active_event_seconds is not None:
+                        time_diff = active_event_seconds - current_seconds
+                        toast_event_key = (active_event_row, active_event_seconds)
                         if 0 < time_diff <= config.TIME_ALERT_SECONDS and self._last_toast_event_key != toast_event_key and not self.toast_manager.is_toast_visible():
-                            time_item = self.table_area.item(next_event_row, 0)
-                            event_item = self.table_area.item(next_event_row, 1)
-                            army_item = self.table_area.item(next_event_row, 2)
+                            time_item = self.table_area.item(active_event_row, 0)
+                            event_item = self.table_area.item(active_event_row, 1)
+                            army_item = self.table_area.item(active_event_row, 2)
                             if time_item and event_item:
                                 toast_message = f"{time_item.text()}\t{event_item.text()}" + (f"\t{army_item.text()}" if army_item else "")
                                 self.show_toast(toast_message, config.TOAST_DURATION)
                                 self._last_toast_event_key = toast_event_key
 
-                    self.center_table_on_row(current_event_row)
+                    self.center_table_on_row(active_event_row)
                 except Exception as e:
                     self.logger.error(f'调整表格滚动位置和颜色失败: {str(e)}\n{traceback.format_exc()}')
 
