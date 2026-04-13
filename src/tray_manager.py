@@ -47,7 +47,10 @@ class TrayManager:
         quit_action = QAction(self.parent.get_text('quit_action'), self.parent)
 
         show_action.triggered.connect(self.parent.show)
-        quit_action.triggered.connect(QApplication.instance().quit)
+        if hasattr(self.parent, 'request_quit'):
+            quit_action.triggered.connect(self.parent.request_quit)
+        else:
+            quit_action.triggered.connect(QApplication.instance().quit)
 
         language_menu = QMenu(self.parent.get_text('language_menu'), self.parent)
         maps_dir = get_resources_dir('resources', 'maps')
