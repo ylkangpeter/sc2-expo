@@ -31,6 +31,9 @@ from fileutil import get_resources_dir, list_files
 class TimerWindow(QMainWindow):
     # 创建信号用于地图更新
     progress_signal = QtCore.pyqtSignal(list)
+    map_switch_signal = pyqtSignal()
+    lock_shortcut_signal = pyqtSignal()
+    screenshot_shortcut_signal = pyqtSignal()
     toggle_artifact_signal = pyqtSignal()
 
     def get_screen_resolution(self):
@@ -66,6 +69,8 @@ class TimerWindow(QMainWindow):
         self._last_ui_second = None
         self._last_centered_row = None
         self._last_toast_event_key = None
+        self._is_quitting = False
+        self.hotkey_handles = []
         
         # 添加一个标志来追踪地图选择的来源
         self.manual_map_selection = False
@@ -120,6 +125,10 @@ class TimerWindow(QMainWindow):
         
         # 连接信号到处理函数
         self.progress_signal.connect(self.handle_progress_update)
+        self.map_switch_signal.connect(self.handle_map_switch_hotkey)
+        self.lock_shortcut_signal.connect(self.handle_lock_shortcut)
+        self.screenshot_shortcut_signal.connect(self.handle_screenshot_hotkey)
+        self.toggle_artifact_signal.connect(self.handle_artifact_shortcut)
         
         # 初始化全局快捷键
         self.init_global_hotkeys()
@@ -850,11 +859,6 @@ class TimerWindow(QMainWindow):
             # 切换指挥官选择器窗口的打开/关闭状态
             self.commander_selector.toggle_window()
     
-    def closeEvent(self, event):
-        """关闭事件"""
-        event.ignore()
-        self.hide()
-        
     def handle_progress_update(self, data):
         """处理进度更新信号"""
         if data[0] == 'update_map':
@@ -1186,24 +1190,47 @@ class TimerWindow(QMainWindow):
     def init_global_hotkeys(self):
         """初始化全局快捷键"""
         try:
+            self.cleanup_global_hotkeys()
+
             # 解析快捷键配置
             map_shortcut = config.MAP_SHORTCUT.replace(' ', '').lower()
             lock_shortcut = config.LOCK_SHORTCUT.replace(' ', '').lower()
             screenshot_shortcut = config.SCREENSHOT_SHORTCUT.replace(' ', '').lower()
             artifact_shortcut = config.SHOW_ARTIFACT_SHORTCUT.replace(' ', '').lower()
-            
+
             # 注册全局快捷键
-            keyboard.add_hotkey(map_shortcut, self.handle_map_switch_hotkey)
-            keyboard.add_hotkey(lock_shortcut, self.handle_lock_shortcut)
-            keyboard.add_hotkey(screenshot_shortcut, self.handle_screenshot_hotkey)
-        
-            self.toggle_artifact_signal.connect(self.handle_artifact_shortcut)
-            keyboard.add_hotkey(artifact_shortcut, self.toggle_artifact_signal.emit)
+            self.hotkey_handles.append(keyboard.add_hotkey(map_shortcut, self.map_switch_signal.emit))
+            self.hotkey_handles.append(keyboard.add_hotkey(lock_shortcut, self.lock_shortcut_signal.emit))
+            self.hotkey_handles.append(keyboard.add_hotkey(screenshot_shortcut, self.screenshot_shortcut_signal.emit))
+            self.hotkey_handles.append(keyboard.add_hotkey(artifact_shortcut, self.toggle_artifact_signal.emit))
             self.logger.info(f'成功注册全局快捷键: {config.MAP_SHORTCUT}, {config.LOCK_SHORTCUT}, {config.SCREENSHOT_SHORTCUT}')
-            
+
         except Exception as e:
             self.logger.error(f'注册全局快捷键失败: {str(e)}')
             self.logger.error(traceback.format_exc())
+
+    def cleanup_global_hotkeys(self):
+        """清理本窗口注册的全局快捷键"""
+        while getattr(self, 'hotkey_handles', []):
+            hotkey_handle = self.hotkey_handles.pop()
+            try:
+                keyboard.remove_hotkey(hotkey_handle)
+            except Exception as e:
+                self.logger.error(f'移除全局快捷键失败: {str(e)}')
+                self.logger.error(traceback.format_exc())
+
+    def request_quit(self):
+        """从托盘退出菜单发起真正退出。"""
+        self._is_quitting = True
+        try:
+            if hasattr(self, 'tray_manager') and self.tray_manager is not None:
+                self.tray_manager.dispose()
+            self.cleanup_global_hotkeys()
+            self.logger.info('已清理所有全局快捷键')
+        except Exception as e:
+            self.logger.error(f'清理全局快捷键失败: {str(e)}')
+            self.logger.error(traceback.format_exc())
+        QApplication.instance().quit()
             
     def get_text(self, key):
         """获取多语言文本"""
@@ -1319,11 +1346,16 @@ class TimerWindow(QMainWindow):
     
     def closeEvent(self, event):
         """窗口关闭事件处理"""
+        if not self._is_quitting:
+            event.ignore()
+            self.hide()
+            return
+
         try:
             # 清理全局快捷键
             if hasattr(self, 'tray_manager') and self.tray_manager is not None:
                 self.tray_manager.dispose()
-            keyboard.unhook_all()
+            self.cleanup_global_hotkeys()
             self.logger.info('已清理所有全局快捷键')
         except Exception as e:
             self.logger.error(f'清理全局快捷键失败: {str(e)}')
