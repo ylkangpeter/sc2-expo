@@ -89,3 +89,107 @@ def test_timer_layout_imports_platform_dependency():
     import ui.timer_layout as timer_layout
 
     assert hasattr(timer_layout, "sys")
+
+
+def test_update_game_time_sets_default_when_no_playerdata(monkeypatch):
+    from ui import map_schedule
+    import mainfunctions
+
+    class FakeLogger:
+        def debug(self, _message):
+            pass
+
+        def error(self, _message):
+            pass
+
+    class FakeLabel:
+        def __init__(self):
+            self.value = None
+
+        def setText(self, value):
+            self.value = value
+
+    window = type("Window", (), {})()
+    window.logger = FakeLogger()
+    window.time_label = FakeLabel()
+
+    monkeypatch.setattr(mainfunctions, "most_recent_playerdata", None)
+
+    map_schedule.update_game_time(window)
+
+    assert window.time_label.value == "00:00"
+
+
+def test_update_game_time_styles_army_column_for_active_row(monkeypatch):
+    from ui import map_schedule
+    import mainfunctions
+
+    class FakeLogger:
+        def debug(self, _message):
+            pass
+
+        def error(self, _message):
+            pass
+
+    class FakeLabel:
+        def __init__(self):
+            self.value = ""
+
+        def text(self):
+            return self.value
+
+        def setText(self, value):
+            self.value = value
+
+    class FakeItem:
+        def __init__(self, value):
+            self.value = value
+            self.foregrounds = []
+            self.backgrounds = []
+
+        def text(self):
+            return self.value
+
+        def setForeground(self, brush):
+            self.foregrounds.append(brush)
+
+        def setBackground(self, brush):
+            self.backgrounds.append(brush)
+
+    class FakeTable:
+        def __init__(self):
+            self.items = {
+                (0, 0): FakeItem("00:30"),
+                (0, 1): FakeItem("event"),
+                (0, 2): FakeItem("T1"),
+            }
+
+        def rowCount(self):
+            return 1
+
+        def item(self, row, column):
+            return self.items.get((row, column))
+
+    class FakeToastManager:
+        def is_toast_visible(self):
+            return True
+
+    window = type("Window", (), {})()
+    window.logger = FakeLogger()
+    window.time_label = FakeLabel()
+    window.table_area = FakeTable()
+    window.toast_manager = FakeToastManager()
+    window._last_ui_second = None
+    window._last_centered_row = None
+    window._last_toast_event_key = None
+    window.centered_rows = []
+    window.center_table_on_row = lambda row: window.centered_rows.append(row)
+
+    monkeypatch.setattr(mainfunctions, "most_recent_playerdata", {"time": 10})
+
+    map_schedule.update_game_time(window)
+
+    army_item = window.table_area.item(0, 2)
+    assert army_item.foregrounds
+    assert army_item.backgrounds
+    assert window.centered_rows == [0]

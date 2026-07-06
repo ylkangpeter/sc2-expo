@@ -5,6 +5,42 @@ import shutil
 import zipfile
 import argparse
 
+
+def optional_bool(value):
+    if value is None:
+        return True
+    if value in (0, 1, False, True):
+        return bool(value)
+    normalized = str(value).strip().lower()
+    if normalized in {'1', 'true', 'yes', 'on'}:
+        return True
+    if normalized in {'0', 'false', 'no', 'off'}:
+        return False
+    raise argparse.ArgumentTypeError('expected 0/1 or true/false')
+
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description='构建SC2 Timer可执行文件')
+    parser.add_argument(
+        '--upx',
+        '--use-upx',
+        nargs='?',
+        const=True,
+        default=True,
+        type=optional_bool,
+        help='是否使用UPX压缩（0：不压缩，1：压缩）',
+    )
+    parser.add_argument(
+        '--separate-libs',
+        nargs='?',
+        const=True,
+        default=False,
+        type=optional_bool,
+        help='是否分离依赖库（0：单文件模式，1：分离依赖库）',
+    )
+    return parser.parse_args(argv)
+
+
 def clean_build_folders():
     """清理构建文件夹和旧的压缩包"""
     # 清理文件夹
@@ -24,11 +60,21 @@ def create_zip(separate_libs=False):
     """创建zip压缩包"""
     print("\n开始创建压缩包...")
     zip_file = os.path.join('dist', "SC2_Timer.zip")
-    
+
     # 确定源目录
     src_dir = os.path.join('dist', 'SC2 Timer') if separate_libs else 'dist'
-    
+
     with zipfile.ZipFile(zip_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        if separate_libs:
+            for root, _, files in os.walk(src_dir):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    arcname = os.path.relpath(file_path, src_dir)
+                    print(f"添加文件: {arcname}")
+                    zipf.write(file_path, arcname)
+            print(f"\n压缩包创建完成: {zip_file}")
+            return
+
         # 添加exe文件
         exe_path = os.path.join(src_dir, 'SC2 Timer.exe')
         if os.path.exists(exe_path):
@@ -70,13 +116,14 @@ def create_zip(separate_libs=False):
             zipf.write(readme_path, '说明.txt')
         
         # 添加scripts目录下的文件
-        for item in os.listdir('scripts'):
-            src_path = os.path.join('scripts', item)
-            if os.path.isfile(src_path):
-                dst_path = os.path.join(src_dir, item)
-                if os.path.exists(dst_path):
-                    print(f"添加文件: {item}")
-                    zipf.write(dst_path, item)
+        if os.path.exists('scripts'):
+            for item in os.listdir('scripts'):
+                src_path = os.path.join('scripts', item)
+                if os.path.isfile(src_path):
+                    dst_path = os.path.join(src_dir, item)
+                    if os.path.exists(dst_path):
+                        print(f"添加文件: {item}")
+                        zipf.write(dst_path, item)
     
     print(f"\n压缩包创建完成: {zip_file}")
 
@@ -164,13 +211,7 @@ def build_exe(use_upx=False, separate_libs=False):
         print("请检查错误信息并修复问题")
 
 def main():
-    # 解析命令行参数
-    parser = argparse.ArgumentParser(description='构建SC2 Timer可执行文件')
-    parser.add_argument('--upx', type=int, choices=[0, 1], default=1,
-                        help='是否使用UPX压缩（0：不压缩，1：压缩）')
-    parser.add_argument('--separate-libs', type=int, choices=[0, 1], default=0,
-                        help='是否分离依赖库（0：单文件模式，1：分离依赖库）')
-    args = parser.parse_args()
+    args = parse_args()
 
     # 检查是否已安装PyInstaller
     try:
@@ -182,7 +223,7 @@ def main():
         print("PyInstaller安装完成")
     
     # 执行构建
-    build_exe(use_upx=bool(args.upx), separate_libs=bool(args.separate_libs))
+    build_exe(use_upx=args.upx, separate_libs=args.separate_libs)
 
 if __name__ == "__main__":
     main()

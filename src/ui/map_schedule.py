@@ -82,6 +82,17 @@ def parse_schedule_content(content: str) -> list[ScheduleRow]:
             rows.append(ScheduleRow(time_text="", event_text=line, army_text="", raw_text=line))
     return rows
 
+
+def style_table_row(window, row: int, foreground: QColor, background: QColor) -> None:
+    foreground_brush = QBrush(foreground)
+    background_brush = QBrush(background)
+    for column in range(3):
+        item = window.table_area.item(row, column)
+        if item:
+            item.setForeground(foreground_brush)
+            item.setBackground(background_brush)
+
+
 def update_game_time(window):
     """更新游戏时间显示"""
     window.logger.debug('开始更新游戏时间')
@@ -142,34 +153,20 @@ def update_game_time(window):
 
                 # 第二次遍历：设置颜色
                 for row, row_seconds in parsed_rows:
-                    time_item = window.table_area.item(row, 0)
-                    event_item = window.table_area.item(row, 1)
-                    army_item = window.table_area.item(row, 2)
                     # 根据时间差设置颜色
                     if row < active_event_row:
-                        time_item.setForeground(QBrush(QColor(128, 128, 128, 255)))
-                        time_item.setBackground(QBrush(QColor(0, 0, 0, 0)))
-                        if event_item:
-                            event_item.setForeground(QBrush(QColor(128, 128, 128, 255)))
-                            event_item.setBackground(QBrush(QColor(0, 0, 0, 0)))
+                        style_table_row(window, row, QColor(128, 128, 128, 255), QColor(0, 0, 0, 0))
                     elif row == active_event_row:
-                        time_item.setForeground(QBrush(QColor(config.TABLE_NEXT_FONT_COLOR[0], config.TABLE_NEXT_FONT_COLOR[1], config.TABLE_NEXT_FONT_COLOR[2])))
-                        time_item.setBackground(QBrush(QColor(config.TABLE_NEXT_FONT_BG_COLOR[0], config.TABLE_NEXT_FONT_BG_COLOR[1], config.TABLE_NEXT_FONT_BG_COLOR[2], config.TABLE_NEXT_FONT_BG_COLOR[3])))
-                        if event_item:
-                            event_item.setForeground(QBrush(QColor(config.TABLE_NEXT_FONT_COLOR[0], config.TABLE_NEXT_FONT_COLOR[1], config.TABLE_NEXT_FONT_COLOR[2])))
-                            event_item.setBackground(QBrush(QColor(config.TABLE_NEXT_FONT_BG_COLOR[0], config.TABLE_NEXT_FONT_BG_COLOR[1], config.TABLE_NEXT_FONT_BG_COLOR[2], config.TABLE_NEXT_FONT_BG_COLOR[3])))
+                        style_table_row(
+                            window,
+                            row,
+                            QColor(config.TABLE_NEXT_FONT_COLOR[0], config.TABLE_NEXT_FONT_COLOR[1], config.TABLE_NEXT_FONT_COLOR[2]),
+                            QColor(config.TABLE_NEXT_FONT_BG_COLOR[0], config.TABLE_NEXT_FONT_BG_COLOR[1], config.TABLE_NEXT_FONT_BG_COLOR[2], config.TABLE_NEXT_FONT_BG_COLOR[3]),
+                        )
                     elif row_seconds > current_seconds and (row_seconds - current_seconds) <= config.TIME_ALERT_SECONDS:
-                        time_item.setForeground(QBrush(QColor(0, 191, 255)))
-                        time_item.setBackground(QBrush(QColor(0, 191, 255, 30)))
-                        if event_item:
-                            event_item.setForeground(QBrush(QColor(0, 191, 255)))
-                            event_item.setBackground(QBrush(QColor(0, 191, 255, 30)))
+                        style_table_row(window, row, QColor(0, 191, 255), QColor(0, 191, 255, 30))
                     else:
-                        time_item.setForeground(QBrush(QColor(255, 255, 255)))
-                        time_item.setBackground(QBrush(QColor(0, 0, 0, 0)))
-                        if event_item:
-                            event_item.setForeground(QBrush(QColor(255, 255, 255)))
-                            event_item.setBackground(QBrush(QColor(0, 0, 0, 0)))
+                        style_table_row(window, row, QColor(255, 255, 255), QColor(0, 0, 0, 0))
 
                 if active_event_row >= 0 and active_event_seconds is not None:
                     time_diff = active_event_seconds - current_seconds

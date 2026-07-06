@@ -1,34 +1,46 @@
 # -*- coding: utf-8 -*-
 
 import os
+import shutil
+import tempfile
 from PIL import Image
 
 def compress_image(input_path, output_path, quality=85):
     """压缩图像文件"""
     try:
-        # 处理不同类型的图像
-        if input_path.lower().endswith('.svg'):
-            # SVG文件保持不变
-            import shutil
-            shutil.copy2(input_path, output_path)
+        extension = os.path.splitext(input_path)[1].lower()
+        if extension in ('.svg', '.ico', '.gif', '.bmp'):
+            if os.path.abspath(input_path) != os.path.abspath(output_path):
+                shutil.copy2(input_path, output_path)
             return True
-        elif input_path.lower().endswith('.ico'):
-            # ICO文件保持不变
-            import shutil
-            shutil.copy2(input_path, output_path)
-            return True
-        else:
-            # 处理其他图像格式
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=extension or '.tmp') as temp_file:
+            temp_path = temp_file.name
+
+        try:
             img = Image.open(input_path)
-            # 保存为JPEG格式，降低质量
-            if img.mode == 'RGBA':
-                # 创建白色背景
-                background = Image.new('RGB', img.size, (255, 255, 255))
-                background.paste(img, mask=img.split()[3])  # 3是alpha通道
-                background.save(output_path, 'JPEG', quality=quality)
+            if extension == '.png':
+                img.save(temp_path, 'PNG', optimize=True, compress_level=9)
+            elif extension in ('.jpg', '.jpeg'):
+                if img.mode == 'RGBA':
+                    background = Image.new('RGB', img.size, (255, 255, 255))
+                    background.paste(img, mask=img.split()[3])
+                    img = background
+                img.save(temp_path, 'JPEG', quality=quality, optimize=True)
             else:
-                img.save(output_path, 'JPEG', quality=quality)
+                img.save(temp_path, optimize=True)
+
+            if os.path.abspath(input_path) == os.path.abspath(output_path):
+                if os.path.getsize(temp_path) < os.path.getsize(input_path):
+                    shutil.move(temp_path, output_path)
+                else:
+                    os.remove(temp_path)
+            else:
+                shutil.move(temp_path, output_path)
             return True
+        finally:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
     except Exception as e:
         print(f"压缩图像 {input_path} 时出错: {e}")
         return False
@@ -70,7 +82,8 @@ def optimize_images(directory):
         print("没有找到可压缩的图像文件")
 
 if __name__ == "__main__":
-    # 优化ico和img目录
+    # 优化发行包中的图片目录
     optimize_images('ico')
     optimize_images('img')
+    optimize_images(os.path.join('resources', 'artifacts'))
     print("\n图像优化完成!")

@@ -11,6 +11,7 @@ from PyQt5.QtGui import QColor, QPixmap
 from PyQt5.QtWidgets import QGraphicsDropShadowEffect, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 import config
+from fileutil import get_resources_dir
 from ui.map_schedule import parse_time_to_seconds
 
 MUTATOR_TYPES = ("deployment", "propagator", "voidrifts", "killbots", "bombbots")
@@ -29,6 +30,31 @@ def parse_mutator_config_lines(lines: list[str]) -> list[tuple[int, str]]:
         text = parts[1].strip() if len(parts) > 1 else ""
         rows.append((seconds, text))
     return rows
+
+
+def mutator_config_path(mutator_name: str) -> str | None:
+    return get_resources_dir('resources', 'mutator', f'{mutator_name}.txt')
+
+
+def cache_mutator_messages(window, mutator_name: str, rows: list[tuple[int, str]]) -> None:
+    if not hasattr(window, 'mutator_alert_messages'):
+        window.mutator_alert_messages = {}
+    window.mutator_alert_messages[mutator_name] = {seconds: text for seconds, text in rows}
+
+
+def get_mutator_message(window, mutator_name: str, time_point: int) -> str:
+    messages = getattr(window, 'mutator_alert_messages', {})
+    if mutator_name in messages:
+        return messages[mutator_name].get(time_point, '')
+
+    config_path = mutator_config_path(mutator_name)
+    if not config_path or not os.path.exists(config_path):
+        return ''
+
+    with open(config_path, 'r', encoding='utf-8') as f:
+        rows = parse_mutator_config_lines(f.readlines())
+    cache_mutator_messages(window, mutator_name, rows)
+    return window.mutator_alert_messages[mutator_name].get(time_point, '')
 
 
 def show_mutator_alert(window, message, mutator_type='deployment'):
@@ -102,12 +128,12 @@ def show_mutator_alert(window, message, mutator_type='deployment'):
 
     # 根据突变因子类型设置图标和文本
     icon_name = f'{mutator_type}.png'
-    icon_path = os.path.join('ico', 'mutator', icon_name)
+    icon_path = get_resources_dir('ico', 'mutator', icon_name)
 
     # 设置显示文本
     display_text = message
 
-    if os.path.exists(icon_path):
+    if icon_path and os.path.exists(icon_path):
         icon_label = QLabel()
         icon_label.setPixmap(QPixmap(icon_path).scaled(24, 24, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         icon_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)  # 添加鼠标事件穿透
@@ -197,10 +223,10 @@ def load_mutator_config(window, mutator_name):
     """加载突变因子配置文件"""
     try:
         # 获取配置文件路径
-        config_path = os.path.join('resources', 'mutator', f'{mutator_name}.txt')
+        config_path = mutator_config_path(mutator_name)
         window.logger.info(f'加载突变因子配置: {config_path}')
 
-        if not os.path.exists(config_path):
+        if not config_path or not os.path.exists(config_path):
             window.logger.error(f'突变因子配置文件不存在: {config_path}')
             return []
 
@@ -209,6 +235,7 @@ def load_mutator_config(window, mutator_name):
             lines = f.readlines()
 
         rows = parse_mutator_config_lines(lines)
+        cache_mutator_messages(window, mutator_name, rows)
         time_points = [seconds for seconds, _text in rows]
         for seconds, _text in rows:
             window.logger.debug(f"添加时间点: {seconds}秒")
@@ -267,15 +294,7 @@ def check_mutator_alerts(window):
                     # 如果在提醒时间范围内且时间差大于0（未来时间点）
                     if time_diff > 0 and time_diff <= config.MUTATION_FACTOR_ALERT_SECONDS:
                         from debug_utils import format_time_to_mmss
-                        # 读取配置文件中的第二列文本
-                        config_path = os.path.join('resources', 'mutator', f'{mutator_type}.txt')
-                        with open(config_path, 'r', encoding='utf-8') as f:
-                            lines = f.readlines()
-                        second_column_text = ''
-                        for line_seconds, text in parse_mutator_config_lines(lines):
-                            if line_seconds == time_point:
-                                second_column_text = text
-                                break
+                        second_column_text = get_mutator_message(window, mutator_type, time_point)
 
                         window.logger.info(f"触发{mutator_type}突变因子提醒: {format_time_to_mmss(time_point)}处的事件")
                         window.show_mutator_alert(f"{time_diff} 秒后 {second_column_text}", mutator_type)

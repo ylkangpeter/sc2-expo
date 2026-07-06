@@ -116,13 +116,11 @@ class ScreenshotTool:
         x2, y2 = max(screen_start_x, screen_end_x), max(screen_start_y, screen_end_y)
 
         try:
-            monitor_left = int(monitor_rect[0] / self.dpi)
-            monitor_top = int(monitor_rect[1] / self.dpi)
             monitor_bbox = (
-                monitor_left,
-                monitor_top,
-                monitor_left + real_width,
-                monitor_top + real_height,
+                monitor_rect[0],
+                monitor_rect[1],
+                monitor_rect[2],
+                monitor_rect[3],
             )
             im = ImageGrab.grab(bbox=monitor_bbox, all_screens=True)
             logger.info(f'截图坐标(调整前): {x1},{x2},{y1},{y2}')

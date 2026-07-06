@@ -6,9 +6,17 @@ from ui.timer_window import TimerWindow
 class FakeLogger:
     def __init__(self):
         self.infos = []
+        self.warnings = []
+        self.errors = []
 
     def info(self, message):
         self.infos.append(message)
+
+    def warning(self, message):
+        self.warnings.append(message)
+
+    def error(self, message):
+        self.errors.append(message)
 
 
 def test_center_table_on_row_clamps_scroll_and_caches_row():
@@ -116,3 +124,17 @@ def test_handle_lock_shortcut_toggles_control_window_and_emits_state():
     assert window.control_window.is_locked is False
     assert window.control_window.icon_updates == 1
     assert window.control_window.state_changed.emitted == [True]
+
+
+def test_handle_screenshot_hotkey_handles_empty_rect_list(monkeypatch):
+    import ui.timer_window as timer_window
+
+    window = type("Window", (), {})()
+    window.logger = FakeLogger()
+    window.rect_screenshots = []
+
+    monkeypatch.setattr(timer_window.config, "DEBUG_SHOW_ENEMY_INFO_SQUARE", True)
+
+    TimerWindow.handle_screenshot_hotkey(window)
+
+    assert window.logger.infos == ["所有区域截图完成"]

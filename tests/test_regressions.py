@@ -126,6 +126,35 @@ def test_capture_screen_core_uses_imagegrab_monitor_bbox(monkeypatch):
     assert result.size == (100, 100)
 
 
+def test_capture_screen_core_keeps_monitor_bbox_in_physical_coordinates_with_dpi(monkeypatch):
+    import image_util
+
+    monitor_handle = object()
+    captured_image = Image.new("RGB", (400, 400), "red")
+    grab_calls = []
+
+    monkeypatch.setattr(image_util.win32api, "EnumDisplayMonitors", lambda: [(monitor_handle, None, None)])
+    monkeypatch.setattr(
+        image_util.win32api,
+        "GetMonitorInfo",
+        lambda handle: {"Monitor": (100, 200, 500, 600)} if handle is monitor_handle else {},
+    )
+    monkeypatch.setattr(
+        image_util.ImageGrab,
+        "grab",
+        lambda *, bbox, all_screens: grab_calls.append((bbox, all_screens)) or captured_image,
+    )
+
+    tool = image_util.ScreenshotTool.__new__(image_util.ScreenshotTool)
+    tool.dpi = 2
+    tool.root = None
+
+    result = tool.capture_screen_core((10, 20), (110, 120), save_file=False)
+
+    assert grab_calls == [((100, 200, 500, 600), True)]
+    assert result.size == (50, 50)
+
+
 def test_capture_screen_rect_saves_qrect_area(tmp_path, monkeypatch):
     import image_util
 

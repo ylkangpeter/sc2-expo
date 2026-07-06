@@ -50,6 +50,7 @@ class TimerWindow(QMainWindow):
         self._last_toast_event_key = None
         self._is_quitting = False
         self.hotkey_handles = []
+        self.rect_screenshots = []
         
         # 添加一个标志来追踪地图选择的来源
         self.manual_map_selection = False
