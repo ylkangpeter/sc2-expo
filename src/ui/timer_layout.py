@@ -17,7 +17,7 @@ from PyQt5.QtWidgets import (
 
 import config
 from commander_selector import CommanderSelector
-from fileutil import get_resources_dir, list_files
+from ui.map_catalog import list_available_maps
 from ui.mutator_alerts import MUTATOR_TYPES
 
 def init_ui(window):
@@ -212,11 +212,7 @@ def init_ui(window):
     }''')
 
     # 加载resources文件夹下的文件
-    resources_dir = get_resources_dir('resources', 'maps', config.current_language)
-    if not resources_dir:
-        files = []
-    else:
-        files = list_files(resources_dir)
+    files = list_available_maps(config.current_language)
     window.combo_box.addItems(files)
 
     # 连接下拉框选择变化事件

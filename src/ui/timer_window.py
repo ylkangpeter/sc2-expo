@@ -16,7 +16,8 @@ import config
 from PyQt5 import QtCore
 
 import image_util
-from fileutil import get_resources_dir, list_files
+from fileutil import get_resources_dir
+from ui.map_catalog import list_available_maps
 
 class TimerWindow(QMainWindow):
     # 创建信号用于地图更新
@@ -521,11 +522,7 @@ class TimerWindow(QMainWindow):
             self.commander_selector.set_language(lang)
         
         # 重新加载地图列表
-        resources_dir = get_resources_dir('resources', 'maps', lang)
-        if not resources_dir:
-            files = []
-        else:
-            files = list_files(resources_dir)
+        files = list_available_maps(lang)
         
         # 清空并重新添加地图列表
         self.combo_box.clear()
