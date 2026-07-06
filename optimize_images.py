@@ -1,7 +1,7 @@
+# -*- coding: utf-8 -*-
+
 import os
-import cv2
 from PIL import Image
-import numpy as np
 
 def compress_image(input_path, output_path, quality=85):
     """压缩图像文件"""

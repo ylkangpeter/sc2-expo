@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import subprocess
 import sys
 import types
 
@@ -67,6 +68,95 @@ def test_screenshot_create_buttons_imports_tkinter_locally(monkeypatch):
 
     assert isinstance(tool.confirm_button, FakeButton)
     assert isinstance(tool.cancel_button, FakeButton)
+
+
+def test_image_util_import_does_not_require_win32ui():
+    script = """
+import builtins
+original_import = builtins.__import__
+def blocked_import(name, *args, **kwargs):
+    if name == "win32ui":
+        raise ImportError("blocked win32ui")
+    return original_import(name, *args, **kwargs)
+builtins.__import__ = blocked_import
+import image_util
+print(image_util.ScreenshotTool.__name__)
+"""
+    env = {**os.environ, "PYTHONPATH": os.path.abspath("src")}
+
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=os.path.abspath(os.path.join(os.path.dirname(__file__), "..")),
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "ScreenshotTool" in result.stdout
+
+
+def test_capture_screen_core_uses_imagegrab_monitor_bbox(monkeypatch):
+    import image_util
+
+    monitor_handle = object()
+    captured_image = Image.new("RGB", (400, 400), "red")
+    grab_calls = []
+
+    monkeypatch.setattr(image_util.win32api, "EnumDisplayMonitors", lambda: [(monitor_handle, None, None)])
+    monkeypatch.setattr(
+        image_util.win32api,
+        "GetMonitorInfo",
+        lambda handle: {"Monitor": (100, 200, 500, 600)} if handle is monitor_handle else {},
+    )
+    monkeypatch.setattr(
+        image_util.ImageGrab,
+        "grab",
+        lambda *, bbox, all_screens: grab_calls.append((bbox, all_screens)) or captured_image,
+    )
+
+    tool = image_util.ScreenshotTool.__new__(image_util.ScreenshotTool)
+    tool.dpi = 1
+    tool.root = None
+
+    result = tool.capture_screen_core((10, 20), (110, 120), save_file=False)
+
+    assert grab_calls == [((100, 200, 500, 600), True)]
+    assert result.size == (100, 100)
+
+
+def test_capture_screen_rect_saves_qrect_area(tmp_path, monkeypatch):
+    import image_util
+
+    class FakeRect:
+        def x(self):
+            return 10
+
+        def y(self):
+            return 20
+
+        def width(self):
+            return 30
+
+        def height(self):
+            return 40
+
+    class FakeScreenshotTool:
+        def capture_screen_core(self, start_pos, end_pos, save_file):
+            assert start_pos == (10, 20)
+            assert end_pos == (40, 60)
+            assert save_file is False
+            return Image.new("RGB", (30, 40), "blue")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(image_util, "ScreenshotTool", FakeScreenshotTool)
+
+    saved_path = image_util.capture_screen_rect(FakeRect())
+
+    assert saved_path is not None
+    assert os.path.exists(saved_path)
+    assert Image.open(saved_path).size == (30, 40)
 
 
 def test_detect_troop_timeout_callback_does_not_crash_on_found_flag(monkeypatch):

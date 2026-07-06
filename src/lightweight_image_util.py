@@ -2,7 +2,6 @@
 
 import os
 from PIL import Image
-import numpy as np
 from fileutil import get_resources_dir, list_files
 from logging_util import get_logger
 logger = get_logger(__name__)
@@ -54,15 +53,10 @@ class LightweightImageCache:
         img1_gray = img1.convert('L')
         img2_gray = img2.convert('L')
         
-        # 转换为numpy数组
-        arr1 = np.array(img1_gray, dtype=np.float32)
-        arr2 = np.array(img2_gray, dtype=np.float32)
-        
-        # 计算均方误差
-        diff = arr1 - arr2
-        mse_value = np.mean(diff ** 2)
-        
-        return mse_value
+        pixels1 = img1_gray.tobytes()
+        pixels2 = img2_gray.tobytes()
+        squared_error = sum((p1 - p2) ** 2 for p1, p2 in zip(pixels1, pixels2))
+        return squared_error / len(pixels1)
     
     def get_most_similar_image(self, target_img):
         if not self.cache:

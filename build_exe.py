@@ -90,31 +90,15 @@ def build_exe(use_upx=False, separate_libs=False):
     # 清理之前的构建文件
     clean_build_folders()
     
+    os.environ['SC2_TIMER_USE_UPX'] = '1' if use_upx else '0'
+    os.environ['SC2_TIMER_SEPARATE_LIBS'] = '1' if separate_libs else '0'
+
     # 构建命令
     build_cmd = (
         "pyinstaller "
-        "--name=\"SC2 Timer\" "
-        "--icon=ico/fav.ico "
-        "--windowed "
-        f"{'--onedir ' if separate_libs else '--onefile '}"
         "--clean "
-        "--add-data=\"img;img\" "
-        "--add-data=\"scripts/*;.\" "
         f"{'--upx-dir=upx-4.2.1-win64 ' if use_upx else ''}"
-        "--exclude-module=matplotlib "
-        "--exclude-module=notebook "
-        "--exclude-module=pandas "
-        "--exclude-module=PyQt5.QtNetwork "
-        "--exclude-module=PyQt5.QtWebEngine "
-        "--exclude-module=PyQt5.QtWebEngineCore "
-        "--exclude-module=PyQt5.QtWebEngineWidgets "
-        "--exclude-module=PyQt5.QtSql "
-        "--exclude-module=PyQt5.QtXml "
-        "--exclude-module=cryptography "
-        "--exclude-module=OpenSSL "
-
-        "--optimize=2 "
-        "src/main.py"
+        "\"SC2 Timer.spec\""
     )
     
     print("开始构建可执行文件...")

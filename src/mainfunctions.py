@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
-import time
+import http.client
 import json
+import socket
+import time
 import traceback
-import requests
 from PyQt5 import QtCore
 from IdentifyMap import identify_map
 import config
@@ -18,13 +19,33 @@ APP_CLOSING = False
 most_recent_playerdata = None
 current_game_id = None  # 添加新的全局变量用于标识当前游戏
 
-# 创建session用于HTTP请求
-session = requests.Session()
+SC2_API_HOST = "localhost"
+SC2_API_PORT = 6119
+SC2_REQUEST_TIMEOUT_SECONDS = 6
+SC2_REQUEST_ERRORS = (http.client.HTTPException, OSError, TimeoutError, socket.timeout)
 
 troop = None
 
 def get_troop_from_game():
     return troop
+
+
+def get_sc2_json(path):
+    """从 SC2 本地 API 获取 JSON。"""
+    connection = http.client.HTTPConnection(
+        SC2_API_HOST,
+        SC2_API_PORT,
+        timeout=SC2_REQUEST_TIMEOUT_SECONDS,
+    )
+    try:
+        connection.request("GET", path)
+        response = connection.getresponse()
+        data = response.read()
+    finally:
+        connection.close()
+
+    return json.loads(data.decode("utf-8"))
+
 
 def check_for_new_game(progress_callback: QtCore.pyqtSignal) -> None:
     global most_recent_playerdata, current_game_id, troop
@@ -47,7 +68,7 @@ def check_for_new_game(progress_callback: QtCore.pyqtSignal) -> None:
             if config.debug_mode:
                 resp = get_mock_data()
             else:
-                resp = session.get('http://localhost:6119/game', timeout=6).json()
+                resp = get_sc2_json("/game")
             
             players = resp.get('players', list())
             
@@ -113,13 +134,10 @@ def check_for_new_game(progress_callback: QtCore.pyqtSignal) -> None:
                 
                 show_fence.detect_troop(troop_detection_callback)
             
-        except requests.exceptions.ConnectionError:
+        except SC2_REQUEST_ERRORS:
             pass
 
         except json.decoder.JSONDecodeError:
-            pass
-
-        except requests.exceptions.ReadTimeout:
             pass
 
         except Exception:
@@ -140,7 +158,7 @@ def get_game_screen() -> str:
             resp = get_mock_screen_data()
         else:
             # 请求游戏UI状态API
-            resp = session.get('http://localhost:6119/ui', timeout=6).json()
+            resp = get_sc2_json("/ui")
         
         # 获取activeScreens数组
         active_screens = resp.get('activeScreens', [])
@@ -151,14 +169,11 @@ def get_game_screen() -> str:
         else:
             return 'in_game'
             
-    except requests.exceptions.ConnectionError:
+    except SC2_REQUEST_ERRORS:
         logger.debug('SC2请求失败。游戏未运行。')
         return 'unknown'
     except json.decoder.JSONDecodeError:
         logger.info('SC2请求json解码失败（SC2正在启动或关闭）')
-        return 'unknown'
-    except requests.exceptions.ReadTimeout:
-        logger.info('SC2请求超时')
         return 'unknown'
     except Exception:
         logger.error(f'获取游戏界面状态出错: {traceback.format_exc()}')

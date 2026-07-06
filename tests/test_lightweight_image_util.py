@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import io
+import os
+import subprocess
+import sys
 
 from PIL import Image
 
@@ -46,3 +49,30 @@ def test_compare_images_returns_best_cached_match(monkeypatch):
     Image.new("RGB", (2, 2), "white").save(image_bytes, format="PNG")
 
     assert cache.compare_images(image_bytes.getvalue()) == ("white", 1.0)
+
+
+def test_lightweight_image_util_import_does_not_require_numpy():
+    script = """
+import builtins
+original_import = builtins.__import__
+def blocked_import(name, *args, **kwargs):
+    if name == "numpy" or name.startswith("numpy."):
+        raise ImportError("blocked numpy")
+    return original_import(name, *args, **kwargs)
+builtins.__import__ = blocked_import
+import lightweight_image_util
+print(lightweight_image_util.LightweightImageCache.__name__)
+"""
+    env = {**os.environ, "PYTHONPATH": os.path.abspath("src")}
+
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=os.path.abspath(os.path.join(os.path.dirname(__file__), "..")),
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "LightweightImageCache" in result.stdout

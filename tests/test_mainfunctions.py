@@ -1,5 +1,35 @@
 # -*- coding: utf-8 -*-
 
+import os
+import subprocess
+import sys
+
+
+def test_mainfunctions_import_does_not_require_requests():
+    script = """
+import builtins
+original_import = builtins.__import__
+def blocked_import(name, *args, **kwargs):
+    if name == "requests" or name.startswith("requests."):
+        raise ImportError("blocked requests")
+    return original_import(name, *args, **kwargs)
+builtins.__import__ = blocked_import
+import mainfunctions
+print(mainfunctions.get_troop_from_game())
+"""
+    env = {**os.environ, "PYTHONPATH": os.path.abspath("src")}
+
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=os.path.abspath(os.path.join(os.path.dirname(__file__), "..")),
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+
 
 def test_get_game_screen_reports_matchmaking_when_active_screens_present(monkeypatch):
     import mainfunctions
@@ -20,15 +50,12 @@ def test_get_game_screen_reports_in_game_when_active_screens_empty(monkeypatch):
 
 
 def test_get_game_screen_returns_unknown_on_request_error(monkeypatch):
-    import requests
-
     import mainfunctions
 
-    class FailingSession:
-        def get(self, *_args, **_kwargs):
-            raise requests.exceptions.ConnectionError()
+    def raise_request_error(_path):
+        raise OSError()
 
     monkeypatch.setattr(mainfunctions.config, "debug_mode", False)
-    monkeypatch.setattr(mainfunctions, "session", FailingSession())
+    monkeypatch.setattr(mainfunctions, "get_sc2_json", raise_request_error)
 
     assert mainfunctions.get_game_screen() == "unknown"

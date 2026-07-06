@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 
-import win32gui
-import win32ui
-import win32con
 import win32api
-from PIL import Image
+from PIL import ImageGrab
 import os
 from datetime import datetime
 from ctypes import windll
@@ -13,6 +10,40 @@ import traceback
 from logging_util import get_logger
 from lightweight_image_util import LightweightImageCache
 logger = get_logger(__name__)
+
+LOGPIXELSX = 88
+
+
+def get_system_dpi_scale():
+    screen_dc = windll.user32.GetDC(0)
+    try:
+        dpi = windll.gdi32.GetDeviceCaps(screen_dc, LOGPIXELSX)
+    finally:
+        windll.user32.ReleaseDC(0, screen_dc)
+    return dpi / 96.0 if dpi else 1.0
+
+
+def save_screenshot_image(image, filename_prefix="screenshot"):
+    if not os.path.exists('screenshots'):
+        os.makedirs('screenshots')
+
+    filename = os.path.join(
+        'screenshots',
+        f'{filename_prefix}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.png',
+    )
+    image.save(filename)
+    logger.info(f'截图已保存: {filename}')
+    return filename
+
+
+def capture_screen_rect(rect):
+    start_pos = (rect.x(), rect.y())
+    end_pos = (rect.x() + rect.width(), rect.y() + rect.height())
+    image = ScreenshotTool().capture_screen_core(start_pos, end_pos, save_file=False)
+    if image is None:
+        return None
+    return save_screenshot_image(image, "screenshot_rect")
+
 
 class ImageCache(LightweightImageCache):
     """使用轻量级实现替代OpenCV和scikit-image"""
@@ -37,12 +68,10 @@ class ScreenshotTool:
         if hasattr(config, 'GAME_SCREEN_DPI'):
             logger.warning(f"使用用户自定义dpi： {config.GAME_SCREEN_DPI}")
             self.dpi = config.GAME_SCREEN_DPI/96
-        else:    
+        else:
             # 获取系统DPI缩放比例
-            screen_dc = win32gui.GetDC(0)
-            dpi = win32ui.GetDeviceCaps(screen_dc, win32con.LOGPIXELSX) / 96.0
+            dpi = get_system_dpi_scale()
             logger.warning(f"使用自动获取（可能不准，在windows桌面设置查看一下）的系统dpi： {dpi}")
-            win32gui.ReleaseDC(0, screen_dc)
             self.dpi = dpi
 
     def capture_screen_core(self, start_pos, end_pos, save_file=True):
@@ -82,32 +111,20 @@ class ScreenshotTool:
         
         logger.info(f'截图区域(DPI调整后) - 起点: ({screen_start_x}, {screen_start_y}), 终点: ({screen_end_x}, {screen_end_y})')
         
-        # 获取屏幕DC
-        hwin = win32gui.GetDesktopWindow()
-        hwindc = win32gui.GetWindowDC(hwin)
-        srcdc = win32ui.CreateDCFromHandle(hwindc)
-        memdc = srcdc.CreateCompatibleDC()
-        
-        # 创建位图对象
-        bmp = win32ui.CreateBitmap()
-        bmp.CreateCompatibleBitmap(srcdc, real_width, real_height)
-        memdc.SelectObject(bmp)
-        
         # 计算截图区域
         x1, y1 = min(screen_start_x, screen_end_x), min(screen_start_y, screen_end_y)
         x2, y2 = max(screen_start_x, screen_end_x), max(screen_start_y, screen_end_y)
 
-        # 复制屏幕到内存设备上下文
-        memdc.BitBlt((0, 0), (real_width, real_height), srcdc, (int(monitor_rect[0]/self.dpi), int(monitor_rect[1]/self.dpi)), win32con.SRCCOPY)
-        
         try:
-            # 保存位图
-            bmpinfo = bmp.GetInfo()
-            bmpstr = bmp.GetBitmapBits(True)
-            im = Image.frombuffer(
-                'RGB',
-                (bmpinfo['bmWidth'], bmpinfo['bmHeight']),
-                bmpstr, 'raw', 'BGRX', 0, 1)
+            monitor_left = int(monitor_rect[0] / self.dpi)
+            monitor_top = int(monitor_rect[1] / self.dpi)
+            monitor_bbox = (
+                monitor_left,
+                monitor_top,
+                monitor_left + real_width,
+                monitor_top + real_height,
+            )
+            im = ImageGrab.grab(bbox=monitor_bbox, all_screens=True)
             logger.info(f'截图坐标(调整前): {x1},{x2},{y1},{y2}')
 
             # 确保坐标不超出屏幕边界
@@ -128,18 +145,10 @@ class ScreenshotTool:
             logger.info(f'截图坐标(调整后): {x1},{x2},{y1},{y2}')
 
             im = im.crop((x1, y1, x2, y2))
-            
-            # 清理资源
-            memdc.DeleteDC()
-            win32gui.DeleteObject(bmp.GetHandle())
-            win32gui.ReleaseDC(hwin, hwindc)
-            
+
             if save_file:
-                if not os.path.exists('screenshots'):
-                    os.makedirs('screenshots')
-                filename = f'screenshots/screenshot_{datetime.now().strftime("%Y%m%d_%H%M%S")}_{real_width}x{real_height}_{screen_start_x}_{screen_start_y}_{screen_end_x}_{screen_end_y}.png'
-                im.save(filename)
-                logger.info(f'截图已保存: {filename}')
+                filename_prefix = f'screenshot_{real_width}x{real_height}_{screen_start_x}_{screen_start_y}_{screen_end_x}_{screen_end_y}'
+                return save_screenshot_image(im, filename_prefix)
             else:
                 return im
         except Exception as capture_error:
