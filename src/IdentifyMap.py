@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from typing import List, Dict, Any, Optional
 from logging_util import get_logger
 
@@ -189,7 +191,7 @@ def identify_map(player_data: List[Dict[str, Any]]) -> Optional[str]:
         # Then go over two players, and check if both their names are in correct set of localized strings
         for p in map_checks[m]['check']:
             player_name = player_data[p]['name']
-            if not player_name in map_checks[m]['check'][p]:
+            if player_name not in map_checks[m]['check'][p]:
                 logger.info(f'地图{m}的第{p}号位玩家名称不匹配: {player_name} 不在预期列表中')
                 found = False
                 break

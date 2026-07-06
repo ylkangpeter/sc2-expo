@@ -10,7 +10,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['matplotlib', 'notebook', 'pandas', 'PyQt5.QtNetwork', 'PyQt5.QtWebEngine', 'PyQt5.QtWebEngineCore', 'PyQt5.QtWebEngineWidgets', 'PyQt5.QtSql', 'PyQt5.QtXml'],
+    excludes=['matplotlib', 'notebook', 'pandas', 'PyQt5.QtNetwork', 'PyQt5.QtWebEngine', 'PyQt5.QtWebEngineCore', 'PyQt5.QtWebEngineWidgets', 'PyQt5.QtSql', 'PyQt5.QtXml', 'cryptography', 'OpenSSL'],
     noarchive=False,
     optimize=2,
 )

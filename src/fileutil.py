@@ -1,6 +1,8 @@
+# -*- coding: utf-8 -*-
+
 import os
 import sys
-from logging_util import get_logger, setup_logger
+from logging_util import get_logger
 logger = get_logger(__name__)
 
 def get_resources_dir(*subdirs):
@@ -16,13 +18,13 @@ def get_resources_dir(*subdirs):
     
     # 如果当前工作目录没有找到资源目录，则尝试在程序目录查找
     if not os.path.exists(resource_dir):
-        logger.info(f'当前工作目录下未找到目录，尝试在程序目录查找')
+        logger.info('当前工作目录下未找到目录，尝试在程序目录查找')
         program_dir = os.path.dirname(os.path.dirname(__file__))
         resource_dir = os.path.join(program_dir, *subdirs)
     
     # 如果在程序目录也没有找到资源目录，尝试在 exe 目录下查找
     if not os.path.exists(resource_dir):
-        logger.info(f'程序目录下也未找到目录，尝试在打包后的 exe 所在目录查找')
+        logger.info('程序目录下也未找到目录，尝试在打包后的 exe 所在目录查找')
         if getattr(sys, 'frozen', False):  # 判断是否是打包后的 exe 文件
             program_dir = os.path.dirname(sys.executable)
             resource_dir = os.path.join(program_dir, *subdirs)

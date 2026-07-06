@@ -1,20 +1,16 @@
+# -*- coding: utf-8 -*-
+
 import win32gui
 import win32ui
 import win32con
 import win32api
 from PIL import Image
-from pynput import mouse
 import os
 from datetime import datetime
-import tkinter as tk
-from tkinter import ttk
-import ctypes
 from ctypes import windll
-from ctypes import c_int
 import config
 import traceback
-from fileutil import get_resources_dir, list_files
-from logging_util import get_logger, setup_logger
+from logging_util import get_logger
 from lightweight_image_util import LightweightImageCache
 logger = get_logger(__name__)
 
@@ -24,7 +20,6 @@ class ImageCache(LightweightImageCache):
         
 class ScreenshotTool:
     def __init__(self):
-        self.image_cache = ImageCache()
         # 设置DPI感知
         try:
             windll.user32.SetProcessDPIAware()
@@ -114,12 +109,16 @@ class ScreenshotTool:
                 (bmpinfo['bmWidth'], bmpinfo['bmHeight']),
                 bmpstr, 'raw', 'BGRX', 0, 1)
             logger.info(f'截图坐标(调整前): {x1},{x2},{y1},{y2}')
-            
+
             # 确保坐标不超出屏幕边界
-            if x1 < 0: x1 = 0
-            if x2 > real_width: x2 = real_width
-            if y1 < 0: y1 = 0
-            if y2 > real_height: y2 = real_height
+            if x1 < 0:
+                x1 = 0
+            if x2 > real_width:
+                x2 = real_width
+            if y1 < 0:
+                y1 = 0
+            if y2 > real_height:
+                y2 = real_height
             
             # 确保截图区域有效
             if x2 <= x1 or y2 <= y1:
@@ -167,19 +166,9 @@ class ScreenshotTool:
                 self.ui_window.deiconify()
                 self.root.update()
 
-    def on_click(self, x, y, button, pressed):
-        if button == mouse.Button.left:
-            if pressed:
-                self.start_pos = (x, y)
-                self.is_capturing = True
-                logger.info(f'开始位置: {self.start_pos}')
-            elif self.is_capturing:
-                self.end_pos = (x, y)
-                logger.info(f'结束位置: {self.end_pos}')
-                self.capture_screen(self.start_pos, self.end_pos)
-                self.is_capturing = False
-
     def create_overlay(self):
+        import tkinter as tk
+
         # 获取所有显示器信息
         monitors = win32api.EnumDisplayMonitors()
         if not hasattr(config, 'GAME_SCREEN'):
@@ -289,7 +278,7 @@ class ScreenshotTool:
                 # 发生错误时清理UI
                 self.cleanup_ui()
         else:
-            logger.warning(f'确认截图时未检测到有效的开始和结束位置')
+            logger.warning('确认截图时未检测到有效的开始和结束位置')
             self.cleanup_ui()
 
     def on_cancel(self):
@@ -352,6 +341,8 @@ class ScreenshotTool:
             self.ui_window.update()
 
     def create_buttons(self, x1, y1, x2, y2):
+        import tkinter as tk
+
         # 计算按钮位置
         button_width = 60
         button_height = 30
@@ -444,10 +435,6 @@ class ScreenshotTool:
             event.x, event.y
         )
 
-    def start_screenshot(self):
-        """启动截图功能"""
-        self.start()
-        
     def start(self):
         logger.info('截图工具已启动，请按住鼠标左键选择区域...')
         self.create_overlay()
@@ -456,7 +443,8 @@ class ScreenshotTool:
 
     def draw_square(x1, y1, x2, y2, name):
         import threading
-        
+        import tkinter as tk
+
         # 创建一个Event用于控制线程退出
         stop_event = threading.Event()
         root = None
@@ -519,7 +507,7 @@ class ScreenshotTool:
                 try:
                     root.quit()
                     root.destroy()
-                except:
+                except Exception:
                     pass
             ui_thread.join(timeout=1.0)
         

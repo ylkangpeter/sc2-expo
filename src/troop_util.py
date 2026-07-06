@@ -1,4 +1,5 @@
-from logging import Logger
+# -*- coding: utf-8 -*-
+
 import os
 import fileutil
 import logging_util

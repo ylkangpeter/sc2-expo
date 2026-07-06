@@ -1,15 +1,16 @@
-from PyQt5.QtWidgets import QWidget, QGridLayout, QPushButton, QLabel, QRadioButton, QButtonGroup, QHBoxLayout, QVBoxLayout, QFrame, QGraphicsDropShadowEffect
-from PyQt5.QtCore import Qt, QPoint, QTimer, QSize
-from PyQt5.QtGui import QIcon, QPixmap, QFont, QCursor, QColor, QPalette, QMovie
+# -*- coding: utf-8 -*-
+
+from PyQt5.QtWidgets import QWidget, QGridLayout, QPushButton, QLabel, QButtonGroup, QGraphicsDropShadowEffect
+from PyQt5.QtCore import Qt, QTimer, QSize
+from PyQt5.QtGui import QIcon, QFont, QCursor, QColor, QMovie
 import os
 import sys
 import logging
 from PyQt5.QtWidgets import QApplication
 from config import avatar
 from config import WIKI_URL
-import ast
 from PyQt5.QtCore import pyqtSignal
-from fileutil import get_resources_dir, list_files
+from fileutil import get_resources_dir
 
 # 自定义提示窗口类，替代QToolTip
 class CustomTooltip(QLabel):

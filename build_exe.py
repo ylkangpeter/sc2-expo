@@ -1,9 +1,9 @@
+# -*- coding: utf-8 -*-
+
 import os
-import sys
 import shutil
 import zipfile
 import argparse
-from datetime import datetime
 
 def clean_build_folders():
     """清理构建文件夹和旧的压缩包"""
@@ -32,7 +32,7 @@ def create_zip(separate_libs=False):
         # 添加exe文件
         exe_path = os.path.join(src_dir, 'SC2 Timer.exe')
         if os.path.exists(exe_path):
-            print(f"添加文件: SC2 Timer.exe")
+            print("添加文件: SC2 Timer.exe")
             zipf.write(exe_path, 'SC2 Timer.exe')
         
         # 添加resources文件夹
@@ -60,13 +60,13 @@ def create_zip(separate_libs=False):
         # 添加config.py
         config_path = os.path.join(src_dir, 'config.py')
         if os.path.exists(config_path):
-            print(f"添加文件: config.py")
+            print("添加文件: config.py")
             zipf.write(config_path, 'config.py')
         
         # 添加说明.txt
         readme_path = os.path.join(src_dir, '说明.txt')
         if os.path.exists(readme_path):
-            print(f"添加文件: 说明.txt")
+            print("添加文件: 说明.txt")
             zipf.write(readme_path, '说明.txt')
         
         # 添加scripts目录下的文件
@@ -110,6 +110,8 @@ def build_exe(use_upx=False, separate_libs=False):
         "--exclude-module=PyQt5.QtWebEngineWidgets "
         "--exclude-module=PyQt5.QtSql "
         "--exclude-module=PyQt5.QtXml "
+        "--exclude-module=cryptography "
+        "--exclude-module=OpenSSL "
 
         "--optimize=2 "
         "src/main.py"

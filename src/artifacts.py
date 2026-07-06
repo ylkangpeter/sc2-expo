@@ -1,12 +1,13 @@
+# -*- coding: utf-8 -*-
+
 from PyQt5.QtWidgets import QWidget, QLabel, QGraphicsOpacityEffect, QFrame
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt
-from fileutil import get_file_path, get_resources_dir
-import os, sys
+from fileutil import get_resources_dir
+import os
+import sys
 import config
 from PyQt5.QtWidgets import QApplication
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QGuiApplication
 from logging_util import get_logger, setup_logger
 
 from ctypes import windll

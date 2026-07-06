@@ -1,22 +1,28 @@
+# -*- coding: utf-8 -*-
+
 import os
 import sys
 
-# 检查当前目录是否存在config.py文件，如果存在则添加当前目录到sys.path
-current_dir = os.getcwd()
-if os.path.exists(os.path.join(current_dir, "config.py")):
-    sys.path.insert(0, current_dir)
-    print(f"使用外部配置文件: {os.path.join(current_dir, 'config.py')}")
 
-from PyQt5.QtWidgets import QApplication
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QGuiApplication
-from qt_gui import TimerWindow
-import logging_util
-import image_util
-import config
-import show_fence
+def use_external_config_if_present():
+    # 检查当前目录是否存在config.py文件，如果存在则添加当前目录到sys.path
+    current_dir = os.getcwd()
+    config_path = os.path.join(current_dir, "config.py")
+    if os.path.exists(config_path):
+        sys.path.insert(0, current_dir)
+        print(f"使用外部配置文件: {config_path}")
+
+
+use_external_config_if_present()
 
 def main():
+    from PyQt5.QtCore import Qt
+    from PyQt5.QtWidgets import QApplication
+
+    import logging_util
+    import show_fence
+    from qt_gui import TimerWindow
+
     logging_util.setup_logger()
     # 启用高DPI缩放
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
@@ -32,9 +38,7 @@ def main():
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
 
-    timer = TimerWindow()
-    
-    #
+    app.timer_window = TimerWindow()
     show_fence.show_square()
     sys.exit(app.exec_())
 

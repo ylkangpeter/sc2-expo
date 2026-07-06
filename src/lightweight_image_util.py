@@ -1,15 +1,15 @@
+# -*- coding: utf-8 -*-
+
 import os
-import sys
 from PIL import Image
 import numpy as np
 from fileutil import get_resources_dir, list_files
-from logging_util import get_logger, setup_logger
+from logging_util import get_logger
 logger = get_logger(__name__)
 
 class LightweightImageCache:
     def __init__(self):
         self.cache = {}
-        self.last_scan_time = None
         
     def add_image(self, image_path):
         try:
@@ -45,8 +45,6 @@ class LightweightImageCache:
                 full_path = os.path.join(troops_dir, file)
                 self.add_image(full_path)
                 
-        self.last_scan_time = None
-        
     def mse(self, img1, img2):
         """计算均方误差"""
         # 确保图片大小一致
@@ -57,8 +55,8 @@ class LightweightImageCache:
         img2_gray = img2.convert('L')
         
         # 转换为numpy数组
-        arr1 = np.array(img1_gray)
-        arr2 = np.array(img2_gray)
+        arr1 = np.array(img1_gray, dtype=np.float32)
+        arr2 = np.array(img2_gray, dtype=np.float32)
         
         # 计算均方误差
         diff = arr1 - arr2
@@ -71,7 +69,7 @@ class LightweightImageCache:
             logger.warning('图片缓存为空')
             return None, 0.0
             
-        min_mse = float('inf')
+        best_score = -1.0
         best_match = None
         
         for path, cached_img in self.cache.items():
@@ -82,14 +80,16 @@ class LightweightImageCache:
                 score = 1.0 / (1.0 + mse_value)
                 logger.info(f'与图片 {os.path.basename(path)} 的相似度: {score}')
                 
-                if score > min_mse:
-                    min_mse = score
+                if score > best_score:
+                    best_score = score
                     best_match = path
             except Exception as e:
                 logger.error(f'比较图片时发生错误: {str(e)}')
                 continue
+        if best_match is None:
+            return None, 0.0
         best_match = os.path.splitext(os.path.basename(best_match))[0] 
-        return best_match, min_mse
+        return best_match, best_score
         
     def compare_images(self, image_stream):
         """比较图像与缓存中的所有图像的相似度

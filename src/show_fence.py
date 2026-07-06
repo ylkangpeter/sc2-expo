@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import image_util
 import config
 import importlib
@@ -38,6 +40,7 @@ def detect_troop(callback=None):
     
     found = False
     def detect_loop():
+        nonlocal found
         start_time = time.time()
         result = None
         while not found:
@@ -53,7 +56,7 @@ def detect_troop(callback=None):
             pil_image = screenshot_tool.capture_screen_core([x1,y1],[x2,y2], False)
             logger.info(f"开始探索截图区域 {x1},{y1},{x2},{y2}")
             if pil_image:
-                logger.info(f"截图成功")
+                logger.info("截图成功")
                 # 将PIL图像转换为字节流
                 img_byte_arr = io.BytesIO()
                 pil_image.save(img_byte_arr, format='PNG')

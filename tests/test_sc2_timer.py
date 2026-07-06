@@ -1,13 +1,12 @@
-import unittest
-from src.sc2_timer import SC2Timer
+# -*- coding: utf-8 -*-
 
-class TestSC2Timer(unittest.TestCase):
-    def setUp(self):
-        self.timer = SC2Timer()
+import os
+import sys
 
-    def test_get_instructions(self):
-        instruction = self.timer.get_instructions("00:00")
-        self.assertEqual(instruction, "开始建造工人")
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
-if __name__ == '__main__':
-    unittest.main()
+from debug_utils import format_time_to_mmss
+
+
+def test_format_time_to_mmss_formats_seconds():
+    assert format_time_to_mmss(65) == "01:05"

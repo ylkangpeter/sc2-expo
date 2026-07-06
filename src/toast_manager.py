@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from PyQt5.QtWidgets import QLabel, QWidget, QHBoxLayout, QVBoxLayout
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QFont, QPixmap
@@ -17,60 +19,12 @@ class ToastManager:
         self.init_toast()
 
     def init_toast(self):
-        self.troop_loader = TroopLoader()
         """初始化Toast提示组件"""
-        # 创建Toast标签
-        self.toast_label = QLabel(self.parent)
-        self.toast_label.setFont(QFont('Arial', config.TOAST_FONT_SIZE))
-        self.toast_label.setStyleSheet(
-            'QLabel {'
-            '   color: ' + config.TOAST_FONT_COLOR + ';'
-            '   padding: 10px;'
-            '   background-color: transparent;'
-            '   border: none;'
-            '}'
-        )
-        self.toast_label.setAttribute(Qt.WA_TranslucentBackground)
-        self.toast_label.setAlignment(Qt.AlignCenter)
-        self.toast_label.hide()
-        
-        self.toast_label.setAttribute(Qt.WA_TransparentForMouseEvents)
-        self.toast_label.setWindowFlags(
-            Qt.FramelessWindowHint |
-            Qt.WindowStaysOnTopHint |
-            Qt.Tool
-        )
-        
+        self.troop_loader = TroopLoader()
+
         # 创建Toast定时器
         self.toast_timer = QTimer(self.parent)
         self.toast_timer.timeout.connect(self.hide_toast)
-
-        # 创建Mutator Alert标签
-        self.mutator_alert_label = QLabel()
-        # 设置字体大小为普通toast的2/3
-        mutator_font_size = int(config.TOAST_FONT_SIZE * 2/3) # 强制设置成小一些
-        self.mutator_alert_label.setFont(QFont('Arial', mutator_font_size))
-        self.mutator_alert_label.setStyleSheet(
-            'QLabel {'
-            '   color: ' + config.MUTATOR_DEPLOYMENT_COLOR + ';'
-            '   padding: 10px;'
-            '   background-color: transparent;'
-            '   border: none;'
-            '}'
-        )
-        self.mutator_alert_label.setAttribute(Qt.WA_TranslucentBackground)
-        self.mutator_alert_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)
-        # 设置窗口标志
-        self.mutator_alert_label.setWindowFlags(
-            Qt.FramelessWindowHint |
-            Qt.WindowStaysOnTopHint |
-            Qt.Tool
-        )
-        self.mutator_alert_label.hide()
-        
-        # 创建Mutator Alert定时器
-        self.mutator_alert_timer = QTimer(self.parent)
-        self.mutator_alert_timer.timeout.connect(self.hide_mutator_alert)
 
     def hide_toast(self):
         """隐藏Toast提示"""
@@ -78,13 +32,7 @@ class ToastManager:
             self.toast_container.hide()
             self.toast_container.deleteLater()
             self.toast_container = None
-        self.toast_label.hide()
         self.toast_timer.stop()
-
-    def hide_mutator_alert(self):
-        """隐藏Mutator提示"""
-        self.mutator_alert_label.hide()
-        self.mutator_alert_timer.stop()
 
     def is_toast_visible(self):
         return self.toast_container is not None and self.toast_container.isVisible()

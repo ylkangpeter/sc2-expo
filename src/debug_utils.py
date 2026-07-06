@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import time
 import threading
 from typing import Dict, Optional
@@ -97,16 +99,6 @@ def set_time_factor(factor: float):
         init_mock(factor)
     else:
         _game_time_mock.set_time_factor(factor)
-
-def pause_game():
-    """暂停游戏时间"""
-    if _game_time_mock is not None:
-        _game_time_mock.pause()
-
-def resume_game():
-    """恢复游戏时间"""
-    if _game_time_mock is not None:
-        _game_time_mock.resume()
 
 class GameScreenMock:
     def __init__(self):

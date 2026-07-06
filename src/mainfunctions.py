@@ -1,9 +1,10 @@
+# -*- coding: utf-8 -*-
+
 import time
 import json
 import traceback
 import requests
 from PyQt5 import QtCore
-from map_processor import MapProcessor
 from IdentifyMap import identify_map
 import config
 from debug_utils import get_mock_data, reset_mock, get_mock_screen_data
@@ -15,8 +16,6 @@ logger = get_logger(__name__)
 # 全局变量
 APP_CLOSING = False
 most_recent_playerdata = None
-player_winrate_data = []
-PLAYER_NAMES = []
 current_game_id = None  # 添加新的全局变量用于标识当前游戏
 
 # 创建session用于HTTP请求
@@ -36,9 +35,6 @@ def check_for_new_game(progress_callback: QtCore.pyqtSignal) -> None:
     
     # 等待游戏初始化完成
     time.sleep(4)
-    
-    # 用于识别新游戏的变量
-    last_game_time = None
     
     while True:
         time.sleep(0.5)
@@ -93,16 +89,6 @@ def check_for_new_game(progress_callback: QtCore.pyqtSignal) -> None:
                     'map': resp.get('map')
                 }
 
-                last_game_time = current_time
-                
-                player_names = list()
-                player_position = 1
-                for player in players:
-                    if player['id'] in {1, 2}  and player['type'] != 'computer':
-                        player_names.append(player['name'])
-                        player_position = 2 if player['id'] == 1 else 1
-                        break
-
                 # 识别地图
                 try:
                     # 从游戏API获取地图数据
@@ -138,11 +124,6 @@ def check_for_new_game(progress_callback: QtCore.pyqtSignal) -> None:
 
         except Exception:
             logger.error(traceback.format_exc())
-
-def get_player_data(player_names):
-    """获取玩家数据"""
-    # TODO: 实现获取玩家数据的逻辑
-    return {}
 
 def get_game_screen() -> str:
     """获取当前游戏界面状态
