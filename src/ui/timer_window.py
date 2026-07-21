@@ -49,6 +49,7 @@ class TimerWindow(QMainWindow):
         self._last_centered_row = None
         self._last_toast_event_key = None
         self._is_quitting = False
+        self._click_through_unlocked = None
         self.hotkey_handles = []
         self.rect_screenshots = []
         
@@ -113,6 +114,10 @@ class TimerWindow(QMainWindow):
         
         # 初始化全局快捷键
         self.init_global_hotkeys()
+
+        self.click_through_guard_timer = QTimer(self)
+        self.click_through_guard_timer.timeout.connect(self.enforce_click_through_state)
+        self.click_through_guard_timer.start(5000)
         
         # 启动游戏检查线程
         from mainfunctions import check_for_new_game
@@ -281,6 +286,7 @@ class TimerWindow(QMainWindow):
     def on_control_state_changed(self, unlocked):
         """处理控制窗口状态改变事件"""
         self.logger.info(f'控制窗口状态改变: unlocked={unlocked}')
+        self._click_through_unlocked = unlocked
         
         # 根据解锁状态显示或隐藏替换指挥官按钮
         if hasattr(self, 'replace_commander_btn'):
@@ -293,57 +299,7 @@ class TimerWindow(QMainWindow):
         if hasattr(self, 'commander_selector'):
             self.commander_selector.set_visibility(unlocked)
         
-        # 在Windows平台上，直接使用Windows API设置窗口样式
-        if sys.platform == 'win32':
-            try:
-                # 定义Windows API常量
-                GWL_EXSTYLE = -20
-                WS_EX_TRANSPARENT = 0x00000020
-                WS_EX_LAYERED = 0x00080000
-                
-                # 获取窗口句柄
-                hwnd = int(self.winId())
-                
-                # 获取当前窗口样式
-                ex_style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
-                self.logger.info(f'当前窗口样式: {ex_style}')
-                
-                if not unlocked:  # 锁定状态（不可点击）
-                    # 添加透明样式
-                    new_ex_style = ex_style | WS_EX_TRANSPARENT | WS_EX_LAYERED
-                    self.logger.info(f'设置窗口为不可点击状态，样式从 {ex_style} 更改为 {new_ex_style}')
-                else:  # 解锁状态（可点击）
-                    # 移除透明样式，但保留WS_EX_LAYERED
-                    new_ex_style = (ex_style & ~WS_EX_TRANSPARENT) | WS_EX_LAYERED
-                    self.logger.info(f'设置窗口为可点击状态，样式从 {ex_style} 更改为 {new_ex_style}')
-                
-                # 设置新样式
-                result = ctypes.windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, new_ex_style)
-                if result == 0:
-                    error = ctypes.windll.kernel32.GetLastError()
-                    self.logger.error(f'SetWindowLongW失败，错误码: {error}')
-                    
-                # 强制窗口重绘
-                ctypes.windll.user32.SetWindowPos(
-                    hwnd, 0, 0, 0, 0, 0, 
-                    0x0001 | 0x0002 | 0x0004 | 0x0020  # SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_FRAMECHANGED
-                )
-                
-            except Exception as e:
-                self.logger.error(f'设置Windows平台点击穿透失败: {str(e)}')
-                self.logger.error(traceback.format_exc())
-        else:
-            # 非Windows平台使用Qt的方法
-            self.hide()  # 先隐藏窗口
-            
-            if not unlocked:  # 锁定状态（不可点击）
-                self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
-                self.logger.info('已设置窗口为不可点击状态')
-            else:  # 解锁状态（可点击）
-                self.setAttribute(Qt.WA_TransparentForMouseEvents, False)
-                self.logger.info('已设置窗口为可点击状态')
-                
-            self.show()  # 重新显示窗口
+        self.apply_click_through_state(unlocked, force=True)
         
         # 更新突变按钮的状态
         for btn in self.mutator_buttons:
@@ -355,6 +311,62 @@ class TimerWindow(QMainWindow):
                 btn.setIcon(btn.original_icon)
             else:
                 btn.setIcon(btn.gray_icon)
+
+    def apply_click_through_state(self, unlocked, force=False):
+        """Synchronize Qt and Win32 click-through state for the overlay."""
+        transparent = not unlocked
+        if self.testAttribute(Qt.WA_TransparentForMouseEvents) != transparent:
+            self.setAttribute(Qt.WA_TransparentForMouseEvents, transparent)
+
+        if sys.platform != 'win32':
+            if force:
+                self.hide()
+                self.show()
+            self.logger.info('已设置窗口为%s状态', '可点击' if unlocked else '不可点击')
+            return
+
+        try:
+            GWL_EXSTYLE = -20
+            WS_EX_TRANSPARENT = 0x00000020
+            WS_EX_LAYERED = 0x00080000
+            SWP_NOSIZE = 0x0001
+            SWP_NOMOVE = 0x0002
+            SWP_NOZORDER = 0x0004
+            SWP_FRAMECHANGED = 0x0020
+
+            hwnd = int(self.winId())
+            user32 = ctypes.windll.user32
+            kernel32 = ctypes.windll.kernel32
+            ex_style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            target_style = ex_style | WS_EX_LAYERED
+            if transparent:
+                target_style |= WS_EX_TRANSPARENT
+            else:
+                target_style &= ~WS_EX_TRANSPARENT
+
+            if force or target_style != ex_style:
+                kernel32.SetLastError(0)
+                previous_style = user32.SetWindowLongW(hwnd, GWL_EXSTYLE, target_style)
+                error = kernel32.GetLastError()
+                if previous_style == 0 and error != 0:
+                    self.logger.error(f'SetWindowLongW失败，错误码: {error}')
+                else:
+                    self.logger.info(
+                        f'设置窗口为{"可点击" if unlocked else "不可点击"}状态，样式从 {ex_style} 更改为 {target_style}'
+                    )
+
+                user32.SetWindowPos(
+                    hwnd, 0, 0, 0, 0, 0,
+                    SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_FRAMECHANGED
+                )
+        except Exception as e:
+            self.logger.error(f'设置Windows平台点击穿透失败: {str(e)}')
+            self.logger.error(traceback.format_exc())
+
+    def enforce_click_through_state(self):
+        """Restore click-through state if the native window style drifts."""
+        if self._click_through_unlocked is not None:
+            self.apply_click_through_state(self._click_through_unlocked)
                 
     def on_replace_commander(self):
         """处理替换指挥官按钮的点击事件"""
@@ -615,6 +627,7 @@ class TimerWindow(QMainWindow):
             hwnd = int(self.winId())
             win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, 0, 0, 0, 0, 
                                 win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOACTIVATE)
+        self.enforce_click_through_state()
 
     def on_mutator_toggled(self, button, checked):
         from ui.mutator_alerts import on_mutator_toggled
