@@ -1,9 +1,12 @@
+# -*- coding: utf-8 -*-
+
 from PyQt5.QtWidgets import QMainWindow, QLabel
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
 from PyQt5.QtCore import pyqtSignal
 import os
 import sys
+
 
 class ControlWindow(QMainWindow):
     # 创建状态改变信号
@@ -23,9 +26,12 @@ class ControlWindow(QMainWindow):
         )
         self.setAttribute(Qt.WA_TranslucentBackground)  # 透明背景
 
-        # 创建图标标签
+        # Keep a tiny non-zero alpha paint area so Windows hit testing does not
+        # treat the fully translucent tool window as click-through.
         self.icon_label = QLabel(self)
-        self.icon_label.setGeometry(5, 12, 20, 20)
+        self.icon_label.setGeometry(0, 0, 30, 30)
+        self.icon_label.setAlignment(Qt.AlignCenter)
+        self.icon_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         
         # 修改图标路径获取方式
         if getattr(sys, 'frozen', False):
@@ -45,13 +51,39 @@ class ControlWindow(QMainWindow):
         # 设置标签样式
         self.icon_label.setStyleSheet("""
             QLabel {
-                background-color: transparent;
+                background-color: rgba(0, 0, 0, 1);
             }
         """)
         
         # 设置窗口大小
         self.setFixedSize(30, 30)
-        
+
+    def ensure_clickable_window_style(self):
+        """Ensure the small lock window remains the only clickable overlay area."""
+        if sys.platform != 'win32':
+            return
+
+        import win32con
+        import win32gui
+
+        hwnd = int(self.winId())
+        ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
+        target_style = (ex_style | win32con.WS_EX_LAYERED) & ~win32con.WS_EX_TRANSPARENT
+        if target_style != ex_style:
+            win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, target_style)
+            win32gui.SetWindowPos(
+                hwnd,
+                win32con.HWND_TOPMOST,
+                0,
+                0,
+                0,
+                0,
+                win32con.SWP_NOMOVE
+                | win32con.SWP_NOSIZE
+                | win32con.SWP_NOACTIVATE
+                | win32con.SWP_FRAMECHANGED,
+            )
+
     def mousePressEvent(self, event):
         # 处理鼠标点击事件
         if event.button() == Qt.LeftButton:
@@ -75,3 +107,4 @@ class ControlWindow(QMainWindow):
             hwnd = int(self.winId())
             win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, 0, 0, 0, 0, 
                                 win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOACTIVATE)
+            self.ensure_clickable_window_style()
