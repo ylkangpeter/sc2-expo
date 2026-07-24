@@ -118,6 +118,10 @@ class TimerWindow(QMainWindow):
         self.click_through_guard_timer = QTimer(self)
         self.click_through_guard_timer.timeout.connect(self.enforce_click_through_state)
         self.click_through_guard_timer.start(5000)
+
+        self.hotkey_guard_timer = QTimer(self)
+        self.hotkey_guard_timer.timeout.connect(self.reset_global_hotkeys)
+        self.hotkey_guard_timer.start(30 * 60 * 1000)
         
         # 启动游戏检查线程
         from mainfunctions import check_for_new_game
@@ -474,6 +478,11 @@ class TimerWindow(QMainWindow):
         from ui.hotkeys import cleanup_global_hotkeys
 
         cleanup_global_hotkeys(self)
+
+    def reset_global_hotkeys(self):
+        from ui.hotkeys import reset_global_hotkeys
+
+        reset_global_hotkeys(self)
 
     def request_quit(self):
         """从托盘退出菜单发起真正退出。"""

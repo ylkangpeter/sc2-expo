@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import traceback
+import importlib
 
 import keyboard
 
@@ -38,4 +39,18 @@ def cleanup_global_hotkeys(window):
         except Exception as e:
             window.logger.error(f'移除全局快捷键失败: {str(e)}')
             window.logger.error(traceback.format_exc())
+
+
+def reset_global_hotkeys(window):
+    """重置 keyboard 模块的全局 hook 并重新注册快捷键。"""
+    global keyboard
+    try:
+        keyboard.unhook_all()
+        keyboard = importlib.reload(keyboard)
+        window.hotkey_handles = []
+        init_global_hotkeys(window)
+        window.logger.info('已重置全局快捷键 hook')
+    except Exception as e:
+        window.logger.error(f'重置全局快捷键失败: {str(e)}')
+        window.logger.error(traceback.format_exc())
 
