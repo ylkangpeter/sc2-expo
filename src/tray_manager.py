@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import os
 import sys
 from PyQt5.QtWidgets import QApplication, QAction, QMenu, QSystemTrayIcon
@@ -14,6 +16,8 @@ class TrayManager:
         self.logger = get_logger(__name__)
         self.tray_icon = None
         self.tray_menu = None
+        self.toggle_action = None
+        self.show_action = None
         self.init_tray()
 
     def dispose(self):
@@ -27,6 +31,26 @@ class TrayManager:
         self.tray_icon.deleteLater()
         self.tray_icon = None
         self.tray_menu = None
+        self.toggle_action = None
+        self.show_action = None
+
+    def get_toggle_action_text(self):
+        if hasattr(self.parent, 'get_text'):
+            text = self.parent.get_text('toggle_action')
+            if text != 'toggle_action':
+                return text
+            text = self.parent.get_text('show_action')
+            if text not in ('show_action', '显示', 'Show'):
+                return text
+        return '显示/隐藏' if getattr(config, 'current_language', 'zh') == 'zh' else 'Show/Hide'
+
+    def toggle_visibility(self):
+        if hasattr(self.parent, 'toggle_visibility'):
+            self.parent.toggle_visibility()
+        elif hasattr(self.parent, 'isVisible') and self.parent.isVisible():
+            self.parent.hide()
+        elif hasattr(self.parent, 'show'):
+            self.parent.show()
 
     def init_tray(self):
         self.dispose()
@@ -43,10 +67,11 @@ class TrayManager:
             self.tray_icon.setIcon(QIcon(icon_path))
 
         self.tray_menu = QMenu(self.parent)
-        show_action = QAction(self.parent.get_text('show_action'), self.parent)
+        self.toggle_action = QAction(self.get_toggle_action_text(), self.parent)
+        self.show_action = self.toggle_action  # Compatibility alias
         quit_action = QAction(self.parent.get_text('quit_action'), self.parent)
 
-        show_action.triggered.connect(self.parent.show)
+        self.toggle_action.triggered.connect(self.toggle_visibility)
         if hasattr(self.parent, 'request_quit'):
             quit_action.triggered.connect(self.parent.request_quit)
         else:
@@ -66,7 +91,7 @@ class TrayManager:
                     )
                     language_menu.addAction(language_action)
 
-        self.tray_menu.addAction(show_action)
+        self.tray_menu.addAction(self.toggle_action)
         self.tray_menu.addMenu(language_menu)
         self.tray_menu.addAction(quit_action)
 
@@ -78,4 +103,4 @@ class TrayManager:
 
     def on_tray_activated(self, reason):
         if reason == QSystemTrayIcon.Trigger:
-            self.parent.show()
+            self.toggle_visibility()

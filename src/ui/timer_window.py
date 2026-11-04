@@ -627,6 +627,54 @@ class TimerWindow(QMainWindow):
         # 调用父类的closeEvent
         super().closeEvent(event)
 
+    def hide_subwindows(self):
+        """隐藏所有关联的子窗口及浮动组件"""
+        if hasattr(self, 'control_window') and self.control_window is not None:
+            self.control_window.hide()
+        if hasattr(self, 'commander_selector') and self.commander_selector is not None:
+            self.commander_selector.hide()
+        if hasattr(self, 'artifact_window') and self.artifact_window is not None:
+            self.artifact_window.hide()
+        if hasattr(self, 'toast_manager') and self.toast_manager is not None:
+            self.toast_manager.hide_toast()
+        if hasattr(self, 'mutator_alert_labels'):
+            for label in self.mutator_alert_labels.values():
+                label.hide()
+
+    def hide(self):
+        """隐藏主窗口及所有关联组件"""
+        try:
+            super().hide()
+        except TypeError:
+            pass
+        self.hide_subwindows()
+        if hasattr(self, 'logger'):
+            self.logger.info('已隐藏SC2 Timer窗口')
+
+    def show(self):
+        """显示主窗口及控制窗口"""
+        try:
+            super().show()
+        except TypeError:
+            pass
+        if hasattr(self, 'control_window') and self.control_window is not None:
+            self.update_control_window_position()
+            self.control_window.show()
+        if hasattr(self, 'logger'):
+            self.logger.info('已显示SC2 Timer窗口')
+
+    def toggle_visibility(self):
+        """切换主窗口及关联窗口的显示/隐藏状态"""
+        if self.isVisible():
+            self.hide()
+        else:
+            self.show()
+
+    def hideEvent(self, event):
+        """窗口隐藏事件，隐藏所有关联子窗口"""
+        super().hideEvent(event)
+        self.hide_subwindows()
+
     def showEvent(self, event):
         """窗口显示事件，确保窗口始终保持在最上层"""
         super().showEvent(event)
@@ -637,6 +685,9 @@ class TimerWindow(QMainWindow):
             win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, 0, 0, 0, 0, 
                                 win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOACTIVATE)
         self.enforce_click_through_state()
+        if hasattr(self, 'control_window') and self.control_window is not None:
+            self.update_control_window_position()
+            self.control_window.show()
 
     def on_mutator_toggled(self, button, checked):
         from ui.mutator_alerts import on_mutator_toggled

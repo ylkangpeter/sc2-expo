@@ -138,3 +138,96 @@ def test_handle_screenshot_hotkey_handles_empty_rect_list(monkeypatch):
     TimerWindow.handle_screenshot_hotkey(window)
 
     assert window.logger.infos == ["所有区域截图完成"]
+
+
+def test_toggle_visibility_toggles_between_hide_and_show():
+    window = type("Window", (), {})()
+    window.logger = FakeLogger()
+    window.visible = True
+    hidden_calls = []
+    shown_calls = []
+
+    window.isVisible = lambda: window.visible
+    window.hide = lambda: (setattr(window, "visible", False), hidden_calls.append(True))
+    window.show = lambda: (setattr(window, "visible", True), shown_calls.append(True))
+
+    TimerWindow.toggle_visibility(window)
+    assert hidden_calls == [True]
+    assert window.visible is False
+
+    TimerWindow.toggle_visibility(window)
+    assert shown_calls == [True]
+    assert window.visible is True
+
+
+def test_hide_subwindows_hides_all_attached_components():
+    class FakeWidget:
+        def __init__(self):
+            self.hidden = False
+
+        def hide(self):
+            self.hidden = True
+
+    class FakeToastManager:
+        def __init__(self):
+            self.toast_hidden = False
+
+        def hide_toast(self):
+            self.toast_hidden = True
+
+    window = type("Window", (), {})()
+    window.control_window = FakeWidget()
+    window.commander_selector = FakeWidget()
+    window.artifact_window = FakeWidget()
+    window.toast_manager = FakeToastManager()
+    window.mutator_alert_labels = {"mut1": FakeWidget(), "mut2": FakeWidget()}
+
+    TimerWindow.hide_subwindows(window)
+
+    assert window.control_window.hidden is True
+    assert window.commander_selector.hidden is True
+    assert window.artifact_window.hidden is True
+    assert window.toast_manager.toast_hidden is True
+    assert window.mutator_alert_labels["mut1"].hidden is True
+    assert window.mutator_alert_labels["mut2"].hidden is True
+
+
+def test_show_updates_control_window_position_and_shows_it():
+    class FakeControlWindow:
+        def __init__(self):
+            self.shown = False
+
+        def show(self):
+            self.shown = True
+
+    window = type("Window", (), {})()
+    window.logger = FakeLogger()
+    window.control_window = FakeControlWindow()
+    position_updated = []
+    window.update_control_window_position = lambda: position_updated.append(True)
+
+    TimerWindow.show(window)
+
+    assert position_updated == [True]
+    assert window.control_window.shown is True
+    assert "已显示SC2 Timer窗口" in window.logger.infos
+
+
+def test_timer_window_get_text_returns_toggle_action_text():
+    import config
+    window = type("Window", (), {})()
+    window.logger = FakeLogger()
+
+    original_lang = getattr(config, "current_language", "zh")
+    try:
+        config.current_language = "zh"
+        assert TimerWindow.get_text(window, "show_action") == "显示/隐藏"
+        assert TimerWindow.get_text(window, "toggle_action") == "显示/隐藏"
+
+        config.current_language = "en"
+        assert TimerWindow.get_text(window, "show_action") == "Show/Hide"
+        assert TimerWindow.get_text(window, "toggle_action") == "Show/Hide"
+    finally:
+        config.current_language = original_lang
+
+
