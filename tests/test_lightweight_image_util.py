@@ -25,6 +25,44 @@ def test_scan_directory_loads_only_png_files(tmp_path, monkeypatch):
     assert {path.name for path in map(type(troops_dir), cache.cache.keys())} == {"black.png", "white.PNG"}
 
 
+def test_scan_directory_uses_correct_default_template_path(tmp_path, monkeypatch):
+    import lightweight_image_util
+
+    resources_dir = tmp_path / "resources"
+    troops_dir = resources_dir / "screen_capture" / "troops"
+    troops_dir.mkdir(parents=True)
+    Image.new("RGB", (1, 1), "black").save(troops_dir / "black.png")
+
+    def resources_path(*parts):
+        if parts == ("resources",):
+            return str(resources_dir)
+        return None
+
+    monkeypatch.setattr(lightweight_image_util, "get_resources_dir", resources_path)
+
+    cache = lightweight_image_util.LightweightImageCache()
+    cache.scan_directory()
+
+    assert str(troops_dir / "black.png") in cache.cache
+
+
+def test_scan_directory_does_not_create_missing_template_directory(tmp_path, monkeypatch):
+    import lightweight_image_util
+
+    resources_dir = tmp_path / "resources"
+    resources_dir.mkdir()
+
+    def resources_path(*parts):
+        if parts == ("resources",):
+            return str(resources_dir)
+        return None
+
+    monkeypatch.setattr(lightweight_image_util, "get_resources_dir", resources_path)
+    lightweight_image_util.LightweightImageCache().scan_directory()
+
+    assert not (resources_dir / "screen_capture").exists()
+
+
 def test_compare_images_returns_empty_result_for_bad_image_bytes(monkeypatch):
     import lightweight_image_util
 

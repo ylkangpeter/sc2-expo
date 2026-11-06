@@ -18,6 +18,7 @@ from PyQt5 import QtCore
 import image_util
 from fileutil import get_resources_dir
 from ui.map_catalog import list_available_maps
+from ui.window_geometry import clamp_window_position, find_screen_for_window
 
 class TimerWindow(QMainWindow):
     # 创建信号用于地图更新
@@ -135,37 +136,22 @@ class TimerWindow(QMainWindow):
         
     def get_current_screen(self):
         """获取当前窗口所在的显示器"""
-        window_geometry = self.geometry()
-        window_center = window_geometry.center()
-        
-        # 获取所有显示器
-        screens = QApplication.screens()
-        
-        # 遍历所有显示器，检查窗口中心点是否在显示器范围内
-        for screen in screens:
-            screen_geometry = screen.geometry()
-            if screen_geometry.contains(window_center):
-                return screen
-        
-        # 如果没有找到，返回主显示器
-        return QApplication.primaryScreen()
+        return find_screen_for_window(
+            self.geometry(), QApplication.screens(), QApplication.primaryScreen()
+        )
     
     def update_control_window_position(self):
         # 保持控制窗口与主窗口位置同步
         current_screen = self.get_current_screen()
         screen_geometry = current_screen.geometry()
 
-        new_x = self.x()
-        new_y = self.y() - self.control_window.height()
-
-        # 限制控制窗口始终位于当前屏幕内
-        min_x = screen_geometry.x()
-        max_x = screen_geometry.x() + max(0, screen_geometry.width() - self.control_window.width())
-        min_y = screen_geometry.y()
-        max_y = screen_geometry.y() + max(0, screen_geometry.height() - self.control_window.height())
-
-        new_x = min(max(new_x, min_x), max_x)
-        new_y = min(max(new_y, min_y), max_y)
+        new_x, new_y = clamp_window_position(
+            self.x(),
+            self.y() - self.control_window.height(),
+            screen_geometry,
+            self.control_window.width(),
+            self.control_window.height(),
+        )
         self.control_window.move(new_x, new_y)
 
     def center_table_on_row(self, row):
@@ -484,18 +470,7 @@ class TimerWindow(QMainWindow):
 
         reset_global_hotkeys(self)
 
-    def request_quit(self):
-        """从托盘退出菜单发起真正退出。"""
-        self._is_quitting = True
-        try:
-            if hasattr(self, 'tray_manager') and self.tray_manager is not None:
-                self.tray_manager.dispose()
-            self.cleanup_global_hotkeys()
-            self.logger.info('已清理所有全局快捷键')
-        except Exception as e:
-            self.logger.error(f'清理全局快捷键失败: {str(e)}')
-            self.logger.error(traceback.format_exc())
-        QApplication.instance().quit()
+
             
     def get_text(self, key):
         """获取多语言文本"""
@@ -607,6 +582,48 @@ class TimerWindow(QMainWindow):
         else:
             self.logger.info('当前地图不支持A/B版本切换')
     
+    def request_quit(self):
+        """从托盘退出菜单发起真正退出。"""
+        self._is_quitting = True
+        # Stop the polling thread before QApplication starts tearing down Qt
+        # objects; otherwise it can emit into a destroyed window.
+        try:
+            import mainfunctions
+            close_request = getattr(mainfunctions, 'request_app_close', None)
+            if close_request is not None:
+                close_request()
+            else:
+                mainfunctions.APP_CLOSING = True
+        except Exception:
+            pass
+        self._wait_for_game_check_thread()
+        try:
+            if hasattr(self, 'tray_manager') and self.tray_manager is not None:
+                self.tray_manager.dispose()
+            self.cleanup_global_hotkeys()
+            self.logger.info('已清理所有全局快捷键')
+        except Exception as e:
+            self.logger.error(f'清理全局快捷键失败: {str(e)}')
+            self.logger.error(traceback.format_exc())
+        QApplication.instance().quit()
+
+    def _wait_for_game_check_thread(self):
+        """Stop the API poller before Qt objects are torn down."""
+        thread = getattr(self, 'game_check_thread', None)
+        if thread is None or not thread.is_alive():
+            return
+        import threading
+        if thread is threading.current_thread():
+            return
+        try:
+            import mainfunctions
+            timeout = getattr(mainfunctions, 'SC2_REQUEST_TIMEOUT_SECONDS', 6) + 1
+            thread.join(timeout=timeout)
+            if thread.is_alive():
+                self.logger.warning('游戏轮询线程未在退出超时内结束')
+        except Exception as e:
+            self.logger.error(f'等待游戏轮询线程退出失败: {e}')
+
     def closeEvent(self, event):
         """窗口关闭事件处理"""
         if not self._is_quitting:
@@ -615,6 +632,16 @@ class TimerWindow(QMainWindow):
             return
 
         try:
+            try:
+                import mainfunctions
+                close_request = getattr(mainfunctions, 'request_app_close', None)
+                if close_request is not None:
+                    close_request()
+                else:
+                    mainfunctions.APP_CLOSING = True
+            except Exception:
+                pass
+            self._wait_for_game_check_thread()
             # 清理全局快捷键
             if hasattr(self, 'tray_manager') and self.tray_manager is not None:
                 self.tray_manager.dispose()

@@ -39,3 +39,15 @@ def test_show_toast_returns_early_when_toast_disabled(monkeypatch):
 
     assert manager.toast_container is None
     assert manager.logger.infos == ["非游戏中状态或禁用toast，不显示Toast提示"]
+
+
+def test_parse_toast_message_accepts_free_form_and_empty_values():
+    from toast_manager import parse_toast_message
+
+    assert parse_toast_message("event") == ("event", ["event"], "event")
+    assert parse_toast_message(None) == ("", [""], "")
+    assert parse_toast_message("00:30\tmessage\tT1") == (
+        "00:30\tmessage\tT1",
+        ["00:30", "message", "T1"],
+        "00:30 message",
+    )

@@ -62,6 +62,28 @@ def test_get_game_screen_returns_unknown_on_request_error(monkeypatch):
     assert mainfunctions.get_game_screen() == "unknown"
 
 
+def test_get_game_screen_returns_unknown_when_active_screens_missing(monkeypatch):
+    import mainfunctions
+
+    monkeypatch.setattr(mainfunctions.config, "debug_mode", True)
+    monkeypatch.setattr(mainfunctions, "get_mock_screen_data", lambda: {})
+
+    assert mainfunctions.get_game_screen() == "unknown"
+
+
+def test_request_app_close_sets_and_reset_close_flag():
+    import mainfunctions
+
+    mainfunctions.reset_app_close()
+    assert mainfunctions.APP_CLOSING is False
+    assert mainfunctions.APP_STOP_EVENT.is_set() is False
+    mainfunctions.request_app_close()
+    assert mainfunctions.APP_CLOSING is True
+    assert mainfunctions.APP_STOP_EVENT.is_set() is True
+    mainfunctions.reset_app_close()
+    assert mainfunctions.APP_STOP_EVENT.is_set() is False
+
+
 def test_get_sc2_json_closes_connection_after_success(monkeypatch):
     import mainfunctions
 

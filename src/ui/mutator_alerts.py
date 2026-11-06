@@ -262,6 +262,14 @@ def check_mutator_alerts(window):
             current_seconds = int(float(current_time))
             window.logger.debug(f"当前游戏时间: {current_seconds}秒")
 
+            # A new game resets the timer.  Clear per-game deduplication state
+            # so the same mutator points can alert again in the next game.
+            previous_seconds = getattr(window, '_last_mutator_time', None)
+            if previous_seconds is not None and current_seconds < previous_seconds:
+                for mutator_type in MUTATOR_TYPES:
+                    setattr(window, f'alerted_{mutator_type}_time_points', set())
+            window._last_mutator_time = current_seconds
+
             # 检查每个突变因子的时间点
             for i, mutator_type in enumerate(MUTATOR_TYPES):
                 if i >= len(window.mutator_buttons):

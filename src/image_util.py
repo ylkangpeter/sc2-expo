@@ -1,20 +1,29 @@
 # -*- coding: utf-8 -*-
 
-import win32api
+try:
+    import win32api
+except ImportError:  # The image module can still be imported off Windows.
+    win32api = None
 from PIL import ImageGrab
 import os
 from datetime import datetime
-from ctypes import windll
+try:
+    from ctypes import windll
+except ImportError:  # ctypes.windll is Windows-only.
+    windll = None
 import config
 import traceback
 from logging_util import get_logger
 from lightweight_image_util import LightweightImageCache
+from screenshot_geometry import clip_rect, move_rect, normalize_rect, scale_point
 logger = get_logger(__name__)
 
 LOGPIXELSX = 88
 
 
 def get_system_dpi_scale():
+    if windll is None:
+        return 1.0
     screen_dc = windll.user32.GetDC(0)
     try:
         dpi = windll.gdi32.GetDeviceCaps(screen_dc, LOGPIXELSX)
@@ -29,7 +38,7 @@ def save_screenshot_image(image, filename_prefix="screenshot"):
 
     filename = os.path.join(
         'screenshots',
-        f'{filename_prefix}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.png',
+        f'{filename_prefix}_{datetime.now().strftime("%Y%m%d_%H%M%S_%f")}.png',
     )
     image.save(filename)
     logger.info(f'截图已保存: {filename}')
@@ -75,6 +84,8 @@ class ScreenshotTool:
             self.dpi = dpi
 
     def capture_screen_core(self, start_pos, end_pos, save_file=True):
+        if win32api is None:
+            raise RuntimeError('Windows display APIs are unavailable')
         # 获取所有显示器信息
         monitors = win32api.EnumDisplayMonitors()
         if not hasattr(config, 'GAME_SCREEN'):
@@ -94,10 +105,8 @@ class ScreenshotTool:
         logger.info(f'屏幕位置: ({monitor_rect[0]/self.dpi}, {monitor_rect[1]/self.dpi}, {monitor_rect[2]/self.dpi}, {monitor_rect[3]/self.dpi})')
 
         # 计算屏幕绝对坐标
-        screen_start_x = int(start_pos[0]/self.dpi)
-        screen_start_y = int(start_pos[1]/self.dpi)
-        screen_end_x = int(end_pos[0]/self.dpi)
-        screen_end_y = int(end_pos[1]/self.dpi)
+        screen_start_x, screen_start_y = scale_point(start_pos, self.dpi)
+        screen_end_x, screen_end_y = scale_point(end_pos, self.dpi)
         
         # 如果存在UI窗口，需要加上窗口偏移
         if hasattr(self, 'root') and self.root:
@@ -112,8 +121,10 @@ class ScreenshotTool:
         logger.info(f'截图区域(DPI调整后) - 起点: ({screen_start_x}, {screen_start_y}), 终点: ({screen_end_x}, {screen_end_y})')
         
         # 计算截图区域
-        x1, y1 = min(screen_start_x, screen_end_x), min(screen_start_y, screen_end_y)
-        x2, y2 = max(screen_start_x, screen_end_x), max(screen_start_y, screen_end_y)
+        crop_rect = normalize_rect(
+            (screen_start_x, screen_start_y),
+            (screen_end_x, screen_end_y),
+        )
 
         try:
             monitor_bbox = (
@@ -123,17 +134,16 @@ class ScreenshotTool:
                 monitor_rect[3],
             )
             im = ImageGrab.grab(bbox=monitor_bbox, all_screens=True)
-            logger.info(f'截图坐标(调整前): {x1},{x2},{y1},{y2}')
+            logger.info(f'截图坐标(调整前): {crop_rect}')
 
-            # 确保坐标不超出屏幕边界
-            if x1 < 0:
-                x1 = 0
-            if x2 > real_width:
-                x2 = real_width
-            if y1 < 0:
-                y1 = 0
-            if y2 > real_height:
-                y2 = real_height
+            # With the Tk overlay, coordinates were made screen-global above;
+            # otherwise callers such as troop detection pass monitor-local
+            # coordinates directly.
+            if hasattr(self, 'root') and self.root:
+                crop_rect = move_rect(crop_rect, -monitor_rect[0], -monitor_rect[1])
+
+            # Ensure the crop stays within the captured monitor image.
+            x1, y1, x2, y2 = clip_rect(crop_rect, real_width, real_height)
             
             # 确保截图区域有效
             if x2 <= x1 or y2 <= y1:

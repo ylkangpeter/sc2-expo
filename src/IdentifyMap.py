@@ -173,13 +173,24 @@ map_checks = {
     }
 }
 
+# These variants use the same in-game player signature as their paired
+# schedules.  The SC2 API's map field is used by identify_map when available
+# to select the exact schedule; without a hint the historical default is kept.
+map_checks['往日神庙-B'] = dict(map_checks['往日神庙-A'])
+map_checks['虚空撕裂-右'] = dict(map_checks['虚空撕裂-左'])
+
 
 logger = get_logger(__name__)
 
-def identify_map(player_data: List[Dict[str, Any]]) -> Optional[str]:
+def identify_map(player_data: List[Dict[str, Any]], map_hint: Optional[str] = None) -> Optional[str]:
     """ Identify a map based on the list of players """
     length = len(player_data)
-    for m in map_checks:
+    candidates = list(map_checks)
+    if isinstance(map_hint, str) and map_hint in map_checks:
+        candidates.remove(map_hint)
+        candidates.insert(0, map_hint)
+
+    for m in candidates:
         found = True
 
         # First check if the length of players is correct
@@ -190,7 +201,8 @@ def identify_map(player_data: List[Dict[str, Any]]) -> Optional[str]:
         logger.info(f'检查地图{m}的玩家名称匹配情况')
         # Then go over two players, and check if both their names are in correct set of localized strings
         for p in map_checks[m]['check']:
-            player_name = player_data[p]['name']
+            player = player_data[p]
+            player_name = player.get('name') if isinstance(player, dict) else None
             if player_name not in map_checks[m]['check'][p]:
                 logger.info(f'地图{m}的第{p}号位玩家名称不匹配: {player_name} 不在预期列表中')
                 found = False

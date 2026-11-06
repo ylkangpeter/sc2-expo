@@ -11,6 +11,7 @@ from config import avatar
 from config import WIKI_URL
 from PyQt5.QtCore import pyqtSignal
 from fileutil import get_resources_dir
+from commander_logic import available_commanders
 
 # 自定义提示窗口类，替代QToolTip
 class CustomTooltip(QLabel):
@@ -114,9 +115,14 @@ class CommanderSelector(QWidget):
         was_visible = self.isVisible()
         # 隐藏窗口
         self.hide()
-        # 清理现有UI
-        for child in self.main_container.findChildren(QWidget):
-            child.deleteLater()
+        # Deleting only descendants leaves the old main container alive.  Drop
+        # the whole container so repeated language switches do not accumulate
+        # overlapping widget trees.
+        old_container = getattr(self, 'main_container', None)
+        if old_container is not None:
+            old_container.hide()
+            old_container.deleteLater()
+            self.main_container = None
         # 重新加载文本并初始化UI
         self.load_texts()
         self.init_ui()
@@ -433,17 +439,16 @@ class CommanderSelector(QWidget):
         pos = QCursor.pos()
         
         # 获取所有可用的指挥官（排除黑名单中的指挥官）
-        available_commanders = []
-        for row in avatar:
-            for commander in row:
-                if commander not in BLACK_LIST and commander in self.commander_urls:
-                    url = self.commander_urls[commander].get(self.selected_region, '')
-                    if url:
-                        available_commanders.append(commander)
+        available = available_commanders(
+            avatar,
+            BLACK_LIST,
+            self.commander_urls,
+            self.selected_region,
+        )
         
-        if available_commanders:
+        if available:
             # 随机选择一个指挥官
-            selected_commander = random.choice(available_commanders)
+            selected_commander = random.choice(available)
             url = self.commander_urls[selected_commander].get(self.selected_region, '')
             
             # 复制URL到剪贴板

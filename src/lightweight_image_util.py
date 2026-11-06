@@ -12,7 +12,9 @@ class LightweightImageCache:
         
     def add_image(self, image_path):
         try:
-            img = Image.open(image_path)
+            # Keep an in-memory copy so the source file is not left open/locked.
+            with Image.open(image_path) as opened:
+                img = opened.copy()
             if img is not None:
                 self.cache[image_path] = img
                 logger.warning(f'已加载图片到缓存: {image_path}')
@@ -22,14 +24,27 @@ class LightweightImageCache:
             logger.error(f'加载图片时发生错误: {str(e)}')
             
     def scan_directory(self):
-        troops_dir = get_resources_dir('resources', 'screen_capcture', 'troops')
+        # ``screen_capcture`` was the historical misspelling. Support it for
+        # existing user installations, while preferring the corrected path.
+        troops_dir = None
+        for parts in (
+            ('resources', 'screen_capture', 'troops'),
+            ('resources', 'screen_capcture', 'troops'),
+        ):
+            candidate = get_resources_dir(*parts)
+            if candidate and os.path.isdir(candidate):
+                troops_dir = candidate
+                break
         if not troops_dir:
-            logger.error('无法找到troops目录')
-            return
-            
-        if not os.path.exists(troops_dir):
-            os.makedirs(troops_dir)
-            logger.warning(f'创建troops目录: {troops_dir}')
+            resources_dir = get_resources_dir('resources')
+            if resources_dir:
+                for relative in (('screen_capture', 'troops'), ('screen_capcture', 'troops')):
+                    candidate = os.path.join(resources_dir, *relative)
+                    if os.path.isdir(candidate):
+                        troops_dir = candidate
+                        break
+        if not troops_dir:
+            logger.warning('未找到部队截图模板目录，请将PNG模板放入 resources/screen_capture/troops')
             return
         
         logger.info(f'开始扫描troops目录: {troops_dir}')

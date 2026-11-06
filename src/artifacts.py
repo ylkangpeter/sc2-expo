@@ -86,8 +86,8 @@ class ArtifactWindow(QWidget):
         # 移动窗口到屏幕中央
         screen = self.screen().geometry()
         self.move(
-            (screen.width() - pixmap.width()) // 2,
-            (screen.height() - pixmap.height()) // 2
+            screen.x() + (screen.width() - pixmap.width()) // 2,
+            screen.y() + (screen.height() - pixmap.height()) // 2
         )
         
         # 添加ikun图标

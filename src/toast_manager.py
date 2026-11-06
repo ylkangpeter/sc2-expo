@@ -10,6 +10,15 @@ from fileutil import get_resources_dir
 from mainfunctions import get_game_screen, get_troop_from_game
 from troop_util import TroopLoader
 
+
+def parse_toast_message(message):
+    """Normalize a toast payload and return its fields plus display text."""
+    normalized = str(message or '')
+    parts = normalized.split('\t')
+    display_text = ' '.join(part for part in parts[:2] if part).strip()
+    return normalized, parts, display_text or normalized
+
+
 class ToastManager:
     
     def __init__(self, parent_window):
@@ -43,6 +52,7 @@ class ToastManager:
 
     def show_toast(self, message, duration=None, force_show=False):
         """显示Toast提示"""
+        message = str(message or '')
         # 检查游戏状态，非游戏中状态不显示提示
         if not force_show and (get_game_screen() != 'in_game' or not config.TOAST_ALLOWED):
             self.logger.info('非游戏中状态或禁用toast，不显示Toast提示')
@@ -60,10 +70,10 @@ class ToastManager:
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(5)
 
-        # 解析消息内容
-        parts = message.split('\t')
+        # 解析消息内容；外部调用可能传入 None 或非字符串。
+        message, parts, display_text = parse_toast_message(message)
         self.logger.info(f'split 行数据: {len(parts)},{parts}')
-        display_text = parts[0] + ' ' + parts[1]
+        # Accept free-form messages as well as the normal tab-separated rows.
         if len(parts) >= 3:
             # 查找T标识的位置
             troops_data = parts[2].split('|')
@@ -187,7 +197,7 @@ class ToastManager:
         current_screen = self.parent.get_current_screen()
         screen_geometry = current_screen.geometry()
         x = screen_geometry.center().x() - container.width() // 2
-        y = int(self.parent.height() * config.TOAST_POSITION)
+        y = screen_geometry.y() + int(screen_geometry.height() * config.TOAST_POSITION)
         container.move(x, y)
 
         # 显示容器并启动定时器
