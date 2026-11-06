@@ -15,12 +15,17 @@ from PyQt5.QtCore import QPoint, QRect, Qt, QTimer, pyqtSignal
 import config
 from PyQt5 import QtCore
 
-import image_util
 from fileutil import get_resources_dir
 from ui.map_catalog import list_available_maps
 from ui.window_geometry import clamp_window_position, find_screen_for_window
+from ui.timer_window_actions import (
+    handle_lock_shortcut,
+    handle_map_switch_hotkey,
+    handle_screenshot_hotkey,
+)
+from ui.timer_window_lifecycle import TimerWindowLifecycleMixin
 
-class TimerWindow(QMainWindow):
+class TimerWindow(TimerWindowLifecycleMixin, QMainWindow):
     # 创建信号用于地图更新
     progress_signal = QtCore.pyqtSignal(list)
     map_switch_signal = pyqtSignal()
@@ -182,33 +187,7 @@ class TimerWindow(QMainWindow):
 
     def handle_screenshot_hotkey(self):
         """处理截图快捷键"""
-        if not config.DEBUG_SHOW_ENEMY_INFO_SQUARE:
-            return
-        
-        try:
-            # 使用已保存的矩形区域进行截图
-            successful_captures = 0
-            
-            for rect in self.rect_screenshots:
-                try:
-                    # 调用capture_screen_rect进行截图并保存
-                    save_path = image_util.capture_screen_rect(rect)
-                    if save_path:
-                        self.logger.info(f'成功保存截图到: {save_path}')
-                        successful_captures += 1
-                    else:
-                        self.logger.warning(f'截图保存失败: {rect.x()}, {rect.y()}, {rect.width()}, {rect.height()}')
-                except Exception as capture_error:
-                    self.logger.error(f'区域截图失败: {str(capture_error)}')
-                    self.logger.error(traceback.format_exc())
-            
-            if successful_captures == len(self.rect_screenshots):
-                self.logger.info('所有区域截图完成')
-            else:
-                self.logger.warning(f'部分区域截图失败: 成功{successful_captures}/{len(self.rect_screenshots)}')
-        except Exception as e:
-            self.logger.error(f'截图处理失败: {str(e)}')
-            self.logger.error(traceback.format_exc())
+        handle_screenshot_hotkey(self)
 
     def init_ui(self):
         from ui.timer_layout import init_ui
@@ -553,169 +532,12 @@ class TimerWindow(QMainWindow):
 
     def handle_lock_shortcut(self):
         """处理锁定快捷键"""
-        self.logger.info(f'检测到锁定快捷键组合: {config.LOCK_SHORTCUT}')
-        # 切换控制窗口的锁定状态
-        self.control_window.is_locked = not self.control_window.is_locked
-        self.control_window.update_icon()
-        # 发送状态改变信号
-        self.control_window.state_changed.emit(not self.control_window.is_locked)
+        handle_lock_shortcut(self)
     
     def handle_map_switch_hotkey(self):
         """处理地图切换快捷键"""
-        self.logger.info(f'检测到地图切换快捷键组合: {config.MAP_SHORTCUT}')
-        # 检查当前地图是否为A/B版本
-        if self.map_version_group.isVisible():
-            self.logger.info('当前地图支持A/B版本切换')
-            # 获取当前选中的按钮
-            current_btn = None
-            for btn in self.version_buttons:
-                if btn.isChecked():
-                    current_btn = btn
-                    break
-            
-            # 切换到另一个版本
-            if current_btn:
-                current_idx = self.version_buttons.index(current_btn)
-                next_idx = (current_idx + 1) % len(self.version_buttons)
-                self.logger.info(f'从版本 {current_btn.text()} 切换到版本 {self.version_buttons[next_idx].text()}')
-                self.version_buttons[next_idx].click()
-        else:
-            self.logger.info('当前地图不支持A/B版本切换')
+        handle_map_switch_hotkey(self)
     
-    def request_quit(self):
-        """从托盘退出菜单发起真正退出。"""
-        self._is_quitting = True
-        # Stop the polling thread before QApplication starts tearing down Qt
-        # objects; otherwise it can emit into a destroyed window.
-        try:
-            import mainfunctions
-            close_request = getattr(mainfunctions, 'request_app_close', None)
-            if close_request is not None:
-                close_request()
-            else:
-                mainfunctions.APP_CLOSING = True
-        except Exception:
-            pass
-        self._wait_for_game_check_thread()
-        try:
-            if hasattr(self, 'tray_manager') and self.tray_manager is not None:
-                self.tray_manager.dispose()
-            self.cleanup_global_hotkeys()
-            self.logger.info('已清理所有全局快捷键')
-        except Exception as e:
-            self.logger.error(f'清理全局快捷键失败: {str(e)}')
-            self.logger.error(traceback.format_exc())
-        QApplication.instance().quit()
-
-    def _wait_for_game_check_thread(self):
-        """Stop the API poller before Qt objects are torn down."""
-        thread = getattr(self, 'game_check_thread', None)
-        if thread is None or not thread.is_alive():
-            return
-        import threading
-        if thread is threading.current_thread():
-            return
-        try:
-            import mainfunctions
-            timeout = getattr(mainfunctions, 'SC2_REQUEST_TIMEOUT_SECONDS', 6) + 1
-            thread.join(timeout=timeout)
-            if thread.is_alive():
-                self.logger.warning('游戏轮询线程未在退出超时内结束')
-        except Exception as e:
-            self.logger.error(f'等待游戏轮询线程退出失败: {e}')
-
-    def closeEvent(self, event):
-        """窗口关闭事件处理"""
-        if not self._is_quitting:
-            event.ignore()
-            self.hide()
-            return
-
-        try:
-            try:
-                import mainfunctions
-                close_request = getattr(mainfunctions, 'request_app_close', None)
-                if close_request is not None:
-                    close_request()
-                else:
-                    mainfunctions.APP_CLOSING = True
-            except Exception:
-                pass
-            self._wait_for_game_check_thread()
-            # 清理全局快捷键
-            if hasattr(self, 'tray_manager') and self.tray_manager is not None:
-                self.tray_manager.dispose()
-            self.cleanup_global_hotkeys()
-            self.logger.info('已清理所有全局快捷键')
-        except Exception as e:
-            self.logger.error(f'清理全局快捷键失败: {str(e)}')
-            self.logger.error(traceback.format_exc())
-        
-        # 调用父类的closeEvent
-        super().closeEvent(event)
-
-    def hide_subwindows(self):
-        """隐藏所有关联的子窗口及浮动组件"""
-        if hasattr(self, 'control_window') and self.control_window is not None:
-            self.control_window.hide()
-        if hasattr(self, 'commander_selector') and self.commander_selector is not None:
-            self.commander_selector.hide()
-        if hasattr(self, 'artifact_window') and self.artifact_window is not None:
-            self.artifact_window.hide()
-        if hasattr(self, 'toast_manager') and self.toast_manager is not None:
-            self.toast_manager.hide_toast()
-        if hasattr(self, 'mutator_alert_labels'):
-            for label in self.mutator_alert_labels.values():
-                label.hide()
-
-    def hide(self):
-        """隐藏主窗口及所有关联组件"""
-        try:
-            super().hide()
-        except TypeError:
-            pass
-        self.hide_subwindows()
-        if hasattr(self, 'logger'):
-            self.logger.info('已隐藏SC2 Timer窗口')
-
-    def show(self):
-        """显示主窗口及控制窗口"""
-        try:
-            super().show()
-        except TypeError:
-            pass
-        if hasattr(self, 'control_window') and self.control_window is not None:
-            self.update_control_window_position()
-            self.control_window.show()
-        if hasattr(self, 'logger'):
-            self.logger.info('已显示SC2 Timer窗口')
-
-    def toggle_visibility(self):
-        """切换主窗口及关联窗口的显示/隐藏状态"""
-        if self.isVisible():
-            self.hide()
-        else:
-            self.show()
-
-    def hideEvent(self, event):
-        """窗口隐藏事件，隐藏所有关联子窗口"""
-        super().hideEvent(event)
-        self.hide_subwindows()
-
-    def showEvent(self, event):
-        """窗口显示事件，确保窗口始终保持在最上层"""
-        super().showEvent(event)
-        if sys.platform == 'win32':
-            import win32gui
-            import win32con
-            hwnd = int(self.winId())
-            win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, 0, 0, 0, 0, 
-                                win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOACTIVATE)
-        self.enforce_click_through_state()
-        if hasattr(self, 'control_window') and self.control_window is not None:
-            self.update_control_window_position()
-            self.control_window.show()
-
     def on_mutator_toggled(self, button, checked):
         from ui.mutator_alerts import on_mutator_toggled
 
