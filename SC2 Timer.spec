@@ -40,7 +40,7 @@ EXCLUDED_MODULES = [
     'keyboard._nixkeyboard',
 ]
 
-KEEP_QT_IMAGE_FORMATS = {'qgif.dll', 'qico.dll', 'qjpeg.dll', 'qsvg.dll'}
+KEEP_QT_IMAGE_FORMATS = {'qgif.dll', 'qico.dll', 'qjpeg.dll', 'qsvg.dll', 'qwebp.dll'}
 KEEP_QT_PLATFORMS = {'qwindows.dll'}
 KEEP_QT_TRANSLATIONS = {
     'qt_zh_CN.qm',

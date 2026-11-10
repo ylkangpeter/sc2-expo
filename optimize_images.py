@@ -27,6 +27,8 @@ def compress_image(input_path, output_path, quality=85):
                     background.paste(img, mask=img.split()[3])
                     img = background
                 img.save(temp_path, 'JPEG', quality=quality, optimize=True)
+            elif extension == '.webp':
+                img.save(temp_path, 'WEBP', quality=quality, method=6)
             else:
                 img.save(temp_path, optimize=True)
 
@@ -53,7 +55,7 @@ def optimize_images(directory):
     
     for root, _, files in os.walk(directory):
         for file in files:
-            if file.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.ico', '.svg')):
+            if file.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.ico', '.svg', '.webp')):
                 input_path = os.path.join(root, file)
                 output_path = input_path
                 

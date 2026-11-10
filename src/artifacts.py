@@ -47,8 +47,10 @@ class ArtifactWindow(QWidget):
         self.image_label.setGraphicsEffect(self.opacity_effect)
 
     def show_artifact(self, filename, opacity=1.0, grayscale=False):
-        # 获取图片完整路径
-        image_path = get_resources_dir('resources', 'artifacts', filename+'.png')
+        # 获取图片完整路径（优先使用高压缩比的 .webp，兼容回退 .png）
+        image_path = get_resources_dir('resources', 'artifacts', filename + '.webp')
+        if not image_path or not os.path.exists(image_path):
+            image_path = get_resources_dir('resources', 'artifacts', filename + '.png')
         logger.info(f"Loading artifact image: {image_path}")
         
         if not image_path or not os.path.exists(image_path):

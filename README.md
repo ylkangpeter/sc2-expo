@@ -1,6 +1,17 @@
 # SC2 Expo
 Git: https://github.com/ylkangpeter/sc2-expo
 
+> [!TIP]
+> **🚀 原生高性能重构版本发布！**
+> 
+> 本项目的全新 C++20 + DirectX 11 + Dear ImGui 原生重构版本现已开源：[**sc2-expo-native**](https://github.com/ylkangpeter/sc2-expo-native)
+> 
+> • **超小体积**：单文件仅 **2.12 MB**（体积缩减 **98%**，无须打包 Python/Qt）  
+> • **超低内存**：运行内存仅约 **25 MB**（降低 **88%**）  
+> • **极速启动**：毫秒级冷启动，零外部依赖，绿色免安装  
+> • **原生性能**：DirectX 11 硬件加速渲染，完美透明与无感点击穿透，常驻悬浮锁头控制  
+> • **功能对齐**：100% 保持原有业务逻辑、17 张合作任务地图自动识别与非侵入式官方 API 原则
+
 [English Version](#english) | [中文版本](#chinese)
 
 <a name="chinese"></a>
@@ -78,6 +89,17 @@ python build_exe.py --use-upx
 
 <a name="english"></a>
 # SC2 Expo
+
+> [!TIP]
+> **🚀 Native High-Performance Rewrite Available!**
+> 
+> A brand new native rewrite built with C++20 + DirectX 11 + Dear ImGui is available at: [**sc2-expo-native**](https://github.com/ylkangpeter/sc2-expo-native)
+> 
+> • **Ultra-compact binary**: Standalone single file ~**2.12 MB** (-98% size reduction, no Python/Qt dependencies)  
+> • **Ultra-low memory**: ~**25 MB** RAM (-88% memory reduction)  
+> • **Instant cold startup**: < 0.05 seconds, green standalone executable  
+> • **Native rendering**: DirectX 11 hardware acceleration with DWM transparent click-through and dedicated lock controller  
+> • **Feature parity**: 100% logic alignment with 17 co-op maps and official non-intrusive API
 
 ## Project Introduction
 SC2 Expo is a StarCraft 2 game assistant tool with the following features:
